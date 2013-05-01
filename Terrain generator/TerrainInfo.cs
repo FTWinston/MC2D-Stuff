@@ -15,8 +15,9 @@ namespace Terrain_generator
 
         private Random r;
 
-        private const double minGroundHeight = 16, caveMinWidth = 48, caveMaxWidth = 400, caveMinHeight = 36, caveMaxHeight = 192;
-        private const int caveDeformSteps = 256;
+        private const double minGroundHeight = 16, caveMinWidth = 128, caveMaxWidth = 512, caveMinHeight = 64, caveMaxHeight = 320;
+        private const int caveDeformSteps = 256, tunnelHeight = 20;
+        private static readonly Brush ground = new SolidBrush(Color.Black), sky = new SolidBrush(Color.White);
 
         public Bitmap Generate()
         {
@@ -24,9 +25,6 @@ namespace Terrain_generator
             Graphics g = Graphics.FromImage(bmp);
             
             r = Seed == -1 ? new Random() : new Random(Seed);
-
-            Brush ground = new SolidBrush(Color.Black);
-            Brush sky = new SolidBrush(Color.White);
 
             g.FillRectangle(sky, 0, 0, Width, Height);
 
@@ -38,7 +36,7 @@ namespace Terrain_generator
             // fit caves underground
             List<Rectangle> caves = new List<Rectangle>();
             for (int cave = 0; cave < CaveQuantity; cave++) // try several times to place each before quitting
-                for (int attempt = 0; attempt < 8; attempt++)
+                for (int attempt = 0; attempt < 10; attempt++)
                 {
                     Rectangle bounds = TryFitCave(caves, groundLevel);
                     if (bounds == Rectangle.Empty)
@@ -51,8 +49,9 @@ namespace Terrain_generator
                 }
 
             // add a tunnel to connect each cave either to the surface or to another cave (that is in turn connected to the surface)
-            GraphicsPath tunnels = AddTunnelsBetweenCaves(r, groundLevel, caves);
-            RenderPath(g, sky, tunnels, true);
+            List<GraphicsPath> tunnels = AddTunnelsBetweenCaves(r, groundLevel, caves);
+            foreach (var tunnel in tunnels)
+                RenderPath(g, sky, tunnel, true);
 
             // floating islands above ground
 
@@ -122,10 +121,10 @@ namespace Terrain_generator
 
         private GraphicsPath DeformCave(Rectangle bounds)
         {
-            GraphicsPath path = new GraphicsPath();
+            GraphicsPath path = new GraphicsPath(FillMode.Alternate);
 
             double[] deformation = PerlinNoise(caveDeformSteps, 0.4, 0.5, new int[] { 64, 32, 16, 8 });
-            Point center = new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
+            Point center = GetRectangleCenter(bounds);
             
             // for each step, circle around the center, going out to the distance we should for an ellipse,
             // then moving inward by the deformation amount. Join this point to the previous one.
@@ -151,8 +150,10 @@ namespace Terrain_generator
             return path;
         }
 
-        private GraphicsPath AddTunnelsBetweenCaves(Random r, double[] groundLevel, List<Rectangle> caves)
+        private List<GraphicsPath> AddTunnelsBetweenCaves(Random r, double[] groundLevel, List<Rectangle> caves)
         {
+            List<GraphicsPath> paths = new List<GraphicsPath>();
+
             // sort the cave from highest to lowest
             Rectangle[] sortedCaves = new Rectangle[caves.Count];
             for (int i = 0; i < sortedCaves.Length; i++)
@@ -171,17 +172,108 @@ namespace Terrain_generator
                 caves.RemoveAt(highest);
             }
 
-            GraphicsPath gp = new GraphicsPath();
-
+            // for each cave, see if there's a higher cave that can be reached by a 0 < angle < 45 degree slope upward from either end
+            // this tunnel mustn't be longer than the equivalent path to the surface.
             for (int i = sortedCaves.Length - 1; i >= 0; i--)
             {
-                // for each cave, see if there's a higher cave that can be reached by a 0-45 degree slope upward from either end
-                // ... that ISN'T longer than the equivalent path to the surface.
+                Rectangle thisCave = sortedCaves[i];
+                int bestCave = -1;
+                double distToBestCave = double.MaxValue;
+                bool tunnelEndHasWrapped = false;
+                Point bestCaveCenter = Point.Empty, thisCaveCenter = GetCaveTunnelPoint(thisCave);
 
-                // if there is, connect that.
+                for (int j = 0; j < i; j++)
+                {
+                    // should we go left or right to reach this cave? try both ways, thanks to looping!
+                    Rectangle destCave = sortedCaves[j];
+                    Point start = new Point(thisCaveCenter.X, thisCaveCenter.Y);
+                    Point dest = GetCaveTunnelPoint(destCave);
+                    
+                    if (IsValidTunnelSlope(start, dest))
+                    {
+                        double dist = Distance(start, dest);
+                        if (dist < distToBestCave)
+                        {
+                            distToBestCave = dist;
+                            bestCave = j;
+                            tunnelEndHasWrapped = false;
+                            bestCaveCenter = dest;
+                        }
+                    }
+                    
+                    if (dest.X > start.X)
+                        start.Offset(Width, 0);
+                    else
+                        dest.Offset(Width, 0);
+
+                    if (IsValidTunnelSlope(start, dest))
+                    {
+                        double dist = Distance(start, dest);
+                        if (dist < distToBestCave)
+                        {
+                            distToBestCave = dist;
+                            bestCave = j;
+                            tunnelEndHasWrapped = true;
+                            bestCaveCenter = dest;
+                        }
+                    }
+                }
+
+                //Point bestSurfaceTunnelExit = writeMe();
+                //bool goLeftToSurface = false;
+
+                if (bestCave != -1 )//&& distToBestCave < Distance(bestSurfaceTunnelExit, goLeftToSurface ? leftExit : rightExit))
+                {// the cave is the best exit
+                    if (tunnelEndHasWrapped)
+                        if ( bestCaveCenter.X < thisCaveCenter.X )
+                            bestCaveCenter.Offset(Width, 0);
+                        else
+                            thisCaveCenter.Offset(Width, 0);
+                    paths.Add(DrawTunnel(bestCaveCenter, thisCaveCenter));
+                }
+                else
+                {// the surface is the best exit
+                    //paths.Add(DrawTunnel(bestSurfaceTunnelExit, goLeftToSurface ? leftExit : rightExit));
+                }
             }
 
-            return gp;
+            return paths;
+        }
+
+        private bool IsValidTunnelSlope(Point start, Point dest)
+        {
+            double gradient = (double)(dest.Y - start.Y) / (dest.X > start.X ? (dest.X - start.X) : (start.X - dest.X));
+            return gradient < 1 && gradient > 0;
+        }
+
+        private Point GetCaveTunnelPoint(Rectangle bounds)
+        {
+            Point p = GetRectangleCenter(bounds);
+            p.Offset(0, -tunnelHeight);
+            return p;
+        }
+
+        private GraphicsPath DrawTunnel(Point p1, Point p2)
+        {
+            GraphicsPath path = new GraphicsPath();
+            Point p1a = new Point(p1.X, p1.Y + tunnelHeight);
+            Point p2a = new Point(p2.X, p2.Y + tunnelHeight);
+            path.AddLine(p1, p1a);
+            path.AddLine(p1a, p2a);
+            path.AddLine(p2a, p2);
+            path.AddLine(p2, p1);
+            path.CloseFigure();
+            return path;
+        }
+
+        private static double Distance(Point p1, Point p2)
+        {
+            return Math.Sqrt((p1.X - p2.X) * (p1.X - p2.X) + (p1.Y - p2.Y) * (p1.Y - p2.Y));
+        }
+
+        private static Point GetRectangleCenter(Rectangle r)
+        {
+            return new Point(r.X + r.Width / 2, r.Y + r.Height / 2);
         }
 
         private double[] PerlinNoise(int range, double amplitude, double persistance, int[] spacing)
