@@ -16,6 +16,8 @@ namespace Terrain_generator
             InitializeComponent();
         }
 
+        int lastSeed = -1;
+
         private void btnGenerate_Click(object sender, EventArgs e)
         {
             int width, height;
@@ -25,11 +27,18 @@ namespace Terrain_generator
                 )
                 return;
 
-            Random r = new Random();
+            if (!chkLockSeed.Checked)
+            {
+                Random r = new Random();
+                lastSeed = r.Next();
+            }
+
             TerrainInfo ti = new TerrainInfo() {
                 Width = width,
                 Height = height,
-                Seed = r.Next()
+                GroundVerticalExtent = trackBarGroundAmplitude.Value,
+                GroundBumpiness = trackBarGroundBumpiness.Value,
+                Seed = lastSeed
             };
 
             new TerrainForm(ti).Show();

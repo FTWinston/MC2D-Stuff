@@ -33,6 +33,13 @@
             this.txtHeight = new System.Windows.Forms.TextBox();
             this.label2 = new System.Windows.Forms.Label();
             this.btnGenerate = new System.Windows.Forms.Button();
+            this.trackBarGroundAmplitude = new System.Windows.Forms.TrackBar();
+            this.label3 = new System.Windows.Forms.Label();
+            this.trackBarGroundBumpiness = new System.Windows.Forms.TrackBar();
+            this.label4 = new System.Windows.Forms.Label();
+            this.chkLockSeed = new System.Windows.Forms.CheckBox();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBarGroundAmplitude)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBarGroundBumpiness)).BeginInit();
             this.SuspendLayout();
             // 
             // txtWidth
@@ -50,7 +57,7 @@
             this.label1.Location = new System.Drawing.Point(12, 15);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(35, 13);
-            this.label1.TabIndex = 1;
+            this.label1.TabIndex = 0;
             this.label1.Text = "Width";
             // 
             // txtHeight
@@ -58,7 +65,7 @@
             this.txtHeight.Location = new System.Drawing.Point(151, 12);
             this.txtHeight.Name = "txtHeight";
             this.txtHeight.Size = new System.Drawing.Size(39, 20);
-            this.txtHeight.TabIndex = 0;
+            this.txtHeight.TabIndex = 1;
             this.txtHeight.Text = "768";
             this.txtHeight.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
@@ -81,11 +88,68 @@
             this.btnGenerate.UseVisualStyleBackColor = true;
             this.btnGenerate.Click += new System.EventHandler(this.btnGenerate_Click);
             // 
-            // Form1
+            // trackBarGroundAmplitude
+            // 
+            this.trackBarGroundAmplitude.LargeChange = 100;
+            this.trackBarGroundAmplitude.Location = new System.Drawing.Point(53, 38);
+            this.trackBarGroundAmplitude.Maximum = 1000;
+            this.trackBarGroundAmplitude.Name = "trackBarGroundAmplitude";
+            this.trackBarGroundAmplitude.Size = new System.Drawing.Size(137, 45);
+            this.trackBarGroundAmplitude.SmallChange = 10;
+            this.trackBarGroundAmplitude.TabIndex = 2;
+            this.trackBarGroundAmplitude.TickFrequency = 50;
+            this.trackBarGroundAmplitude.Value = 500;
+            // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(12, 38);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(47, 39);
+            this.label3.TabIndex = 2;
+            this.label3.Text = "Ground\r\nheight\r\nvariation";
+            // 
+            // trackBarGroundBumpiness
+            // 
+            this.trackBarGroundBumpiness.LargeChange = 100;
+            this.trackBarGroundBumpiness.Location = new System.Drawing.Point(53, 89);
+            this.trackBarGroundBumpiness.Maximum = 1000;
+            this.trackBarGroundBumpiness.Name = "trackBarGroundBumpiness";
+            this.trackBarGroundBumpiness.Size = new System.Drawing.Size(137, 45);
+            this.trackBarGroundBumpiness.SmallChange = 10;
+            this.trackBarGroundBumpiness.TabIndex = 3;
+            this.trackBarGroundBumpiness.TickFrequency = 50;
+            this.trackBarGroundBumpiness.Value = 400;
+            // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(12, 89);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(42, 39);
+            this.label4.TabIndex = 3;
+            this.label4.Text = "Ground\r\nbump-\r\niness";
+            // 
+            // chkLockSeed
+            // 
+            this.chkLockSeed.AutoSize = true;
+            this.chkLockSeed.Location = new System.Drawing.Point(12, 202);
+            this.chkLockSeed.Name = "chkLockSeed";
+            this.chkLockSeed.Size = new System.Drawing.Size(76, 17);
+            this.chkLockSeed.TabIndex = 4;
+            this.chkLockSeed.Text = "Lock seed";
+            this.chkLockSeed.UseVisualStyleBackColor = true;
+            // 
+            // SetupForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(202, 233);
+            this.Controls.Add(this.chkLockSeed);
+            this.Controls.Add(this.label4);
+            this.Controls.Add(this.label3);
+            this.Controls.Add(this.trackBarGroundBumpiness);
+            this.Controls.Add(this.trackBarGroundAmplitude);
             this.Controls.Add(this.btnGenerate);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label1);
@@ -93,8 +157,10 @@
             this.Controls.Add(this.txtWidth);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Fixed3D;
             this.MaximizeBox = false;
-            this.Name = "Form1";
+            this.Name = "SetupForm";
             this.Text = "Terrain generator";
+            ((System.ComponentModel.ISupportInitialize)(this.trackBarGroundAmplitude)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBarGroundBumpiness)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -107,6 +173,11 @@
         private System.Windows.Forms.TextBox txtHeight;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Button btnGenerate;
+        private System.Windows.Forms.TrackBar trackBarGroundAmplitude;
+        private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.TrackBar trackBarGroundBumpiness;
+        private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.CheckBox chkLockSeed;
     }
 }
 

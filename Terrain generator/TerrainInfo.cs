@@ -9,12 +9,12 @@ namespace Terrain_generator
     public class TerrainInfo
     {
         public int Width, Height, Seed = -1;
-        public double Bumpiness = 0.5; // from 0 to ~ 0.6
-        public double Amplitude = 350; // from 0 to ~ 1/2 the height
+        public int GroundLevel = 300, GroundVerticalExtent = 500, GroundBumpiness = 500; // ground level is in pixels from the bottom, bumpiness & amplitude range from 0-1000
 
         private Random r;
 
-        // this actually shouldn't be writing to a Graphics, should it?
+        private const double minGroundHeight = 16;
+
         public Bitmap Generate()
         {
             Bitmap bmp = new Bitmap(Width, Height);
@@ -27,11 +27,31 @@ namespace Terrain_generator
 
             g.FillRectangle(sky, 0, 0, Width, Height);
 
-            double[] groundLevel = PerlinNoise(Width, Amplitude, Bumpiness, new int[] { 256, 128, 64, 32 });
+#region ground level
+            double verticalExtent = GroundVerticalExtent / 2000.0 * Height; // maximum value should be half the image height
+            double bumpiness = GroundBumpiness / 1666.6666667; // maximum value should be 0.6
+
+            double[] groundLevel = PerlinNoise(Width, 1.0, bumpiness, new int[] { 256, 128, 64, 32 });
+
+            double min, max;
+            FindMinMax(groundLevel, out min, out max);
+
+            // scale such that max - min = verticalRange,
+            // and offset such that such that (min + max)/2 = ground level ... min should be >= minGroundHeight
+            double scale = verticalExtent / (max - min);
+            double offset = GroundLevel - (max + min) * scale / 2.0;
+            min = min * scale + offset;
+            if (min < minGroundHeight)
+                scale += minGroundHeight - min;
+
+            for (int i = 0; i < groundLevel.Length; i++)
+                groundLevel[i] = groundLevel[i] * scale + offset;
+
             for (int i = 0; i < Width; i++)
             {
                 g.FillRectangle(ground, i, (float)(Height - groundLevel[i]), 1, (float)groundLevel[i]);
             }
+#endregion ground level
 
             g.Dispose();
             return bmp;
@@ -105,6 +125,21 @@ namespace Terrain_generator
             }
 
             return output;
+        }
+
+        private void FindMinMax(double[] data, out double min, out double max)
+        {
+            min = double.MaxValue;
+            max = double.MinValue;
+            double val;
+            for (int i = 0; i < data.Length; i++)
+            {
+                val = data[i];
+                if (val < min)
+                    min = val;
+                if (val > max)
+                    max = val;
+            }
         }
     }
 }
