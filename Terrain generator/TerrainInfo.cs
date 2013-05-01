@@ -15,7 +15,7 @@ namespace Terrain_generator
 
         private Random r;
 
-        private const double minGroundHeight = 16, caveMinHeight = 16;
+        private const double minGroundHeight = 16, caveMinWidth = 48, caveMaxWidth = 400, caveMinHeight = 36, caveMaxHeight = 192;
         private const int caveDeformSteps = 256;
 
         public Bitmap Generate()
@@ -91,14 +91,14 @@ namespace Terrain_generator
 
         private Rectangle TryFitCave(List<Rectangle> otherCaves, double[] groundLevel)
         {
-            // decide on the size of cave we want to place
-            int caveWidth = 32 + r.Next(224);
-            int caveHeight = 32 + r.Next(192);
+            // decide on the size of the cave we want to place
+            int caveWidth = (int)(caveMinWidth + r.NextDouble() * (caveMaxWidth - caveMinWidth));
+            int caveHeight = (int)(caveMinHeight + r.NextDouble() * (caveMaxHeight - caveMinHeight));
 
             // pick an X point for the cave
             int caveX = r.Next(Width);
 
-            // find a Y point it could be placed at, without hitting the ground
+            // find a Y point it could be placed at, without breaking the surface
             double yMin = minGroundHeight, yMax = Height;
             for (int i = 0; i < caveWidth; i++)
             {
@@ -129,7 +129,7 @@ namespace Terrain_generator
         {
             GraphicsPath path = new GraphicsPath();
 
-            double[] deformation = PerlinNoise(caveDeformSteps, 0.4, 0.5, new int[] { 64, 32, 16, 8, 4 });
+            double[] deformation = PerlinNoise(caveDeformSteps, 0.4, 0.5, new int[] { 64, 32, 16, 8 });
             Point center = new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
             
             // for each step, circle around the center, going out to the distance we should for an ellipse,
@@ -143,8 +143,9 @@ namespace Terrain_generator
 
             for (int i = 1; i < caveDeformSteps; i++)
             {
-                double x = Math.Cos(stepAngle * i) * halfWidth * (1-deformation[i]) + center.X;
-                double y = Math.Sin(stepAngle * i) * halfHeight * (1-deformation[i]) + center.Y;
+                double angle = stepAngle * i;
+                double x = Math.Cos(angle) * halfWidth * (1 - deformation[i]) + center.X;
+                double y = Math.Sin(angle) * halfHeight * (1 - deformation[i]) + center.Y;
 
                 path.AddLine((float)px, (float)py, (float)x, (float)y);
 
