@@ -15,20 +15,16 @@ namespace Terrain_generator
         {
             InitializeComponent();
 
-            Bitmap bmp = new Bitmap(ti.Width, ti.Height);
-            pictureBox1.Width = ti.Width;
-            pictureBox1.Height = ti.Height;
-            ClientSize = new Size(pictureBox1.Width, pictureBox1.Height);
-
-            using (Graphics g = Graphics.FromImage(bmp))
-                ti.Generate(g);
+            Bitmap bmp = ti.Generate();
+            pictureBox1.Width = bmp.Width;
+            pictureBox1.Height = bmp.Height;
+            ClientSize = new Size(pictureBox1.Width, pictureBox1.Height);            
             
-            pictureBox1.Image = bmp;
-
             pictureBox2.Width = pictureBox1.Width;
             pictureBox2.Height = pictureBox1.Height;
             pictureBox2.Left = pictureBox1.Width;
-            pictureBox2.Image = pictureBox1.Image;
+            
+            pictureBox2.Image = pictureBox1.Image = bmp;
         }
 
         const int scroll = 128;

@@ -9,12 +9,17 @@ namespace Terrain_generator
     public class TerrainInfo
     {
         public int Width, Height, Seed = -1;
+        public double Bumpiness = 0.5; // from 0 to ~ 0.6
+        public double Amplitude = 350; // from 0 to ~ 1/2 the height
 
         private Random r;
 
         // this actually shouldn't be writing to a Graphics, should it?
-        public void Generate(Graphics g)
+        public Bitmap Generate()
         {
+            Bitmap bmp = new Bitmap(Width, Height);
+            Graphics g = Graphics.FromImage(bmp);
+            
             r = Seed == -1 ? new Random() : new Random(Seed);
 
             Brush ground = new SolidBrush(Color.Black);
@@ -22,37 +27,25 @@ namespace Terrain_generator
 
             g.FillRectangle(sky, 0, 0, Width, Height);
 
-            double[] noise = PerlinNoise(Width, new int[] { 256, 128, 64, 32 }, new double[] { 350, 200, 100, 30 });
-            for ( int i=0; i<Width; i++ )
+            double[] groundLevel = PerlinNoise(Width, Amplitude, Bumpiness, new int[] { 256, 128, 64, 32 });
+            for (int i = 0; i < Width; i++)
             {
-                g.FillRectangle(ground, i, (float)(Height - noise[i]), 1, (float)noise[i]);
+                g.FillRectangle(ground, i, (float)(Height - groundLevel[i]), 1, (float)groundLevel[i]);
             }
+
+            g.Dispose();
+            return bmp;
         }
-        /*
-        private double[] PerlinNoise(int range, double persistance, int octaves)
+        
+        private double[] PerlinNoise(int range, double amplitude, double persistance, int[] spacing)
         {
             double[] output = new double[range];
-            for (int o = 0; o < octaves; o++)
+            for (int o = 0; o < spacing.Length; o++)
             {
-                double[] noise = GenerateNoise(range, (int)Math.Pow(2, o));
-                double amplitude = Math.Pow(persistance, o);
+                double[] noise = GenerateNoise(range, spacing[o]);
                 for (int i = 0; i < range; i++)
                     output[i] += noise[i] * amplitude;
-            }
-            return output;
-        }
-        */
-        private double[] PerlinNoise(int range, int[] spacings, double[] amplitudes)
-        {
-            if (spacings.Length != amplitudes.Length)
-                throw new Exception("Parameter length error");
-
-            double[] output = new double[range];
-            for (int o = 0; o < spacings.Length; o++)
-            {
-                double[] noise = GenerateNoise(range, spacings[o]);
-                for (int i = 0; i < range; i++)
-                    output[i] += noise[i] * amplitudes[o];
+                amplitude *= persistance;
             }
             return output;
         }
