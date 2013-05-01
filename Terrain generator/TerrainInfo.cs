@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 
 namespace Terrain_generator
 {
@@ -10,10 +11,12 @@ namespace Terrain_generator
     {
         public int Width, Height, Seed = -1;
         public int GroundLevel = 300, GroundVerticalExtent = 500, GroundBumpiness = 500; // ground level is in pixels from the bottom, bumpiness & amplitude range from 0-1000
+        public int CaveQuantity = 5; // 0 - 10
 
         private Random r;
 
-        private const double minGroundHeight = 16;
+        private const double minGroundHeight = 16, caveMinHeight = 16;
+        private const int caveDeformSteps = 256;
 
         public Bitmap Generate()
         {
@@ -27,7 +30,44 @@ namespace Terrain_generator
 
             g.FillRectangle(sky, 0, 0, Width, Height);
 
-#region ground level
+            // first, sort out the ground level
+            double[] groundLevel = DetermineGroundLevel();
+            for (int i = 0; i < Width; i++)
+                g.FillRectangle(ground, i, 0, 1, (float)groundLevel[i]);
+
+            // fit caves underground
+            List<Rectangle> caves = new List<Rectangle>();
+            for (int cave = 0; cave < CaveQuantity; cave++) // try several times to place each before quitting
+                for (int attempt = 0; attempt < 8; attempt++)
+                {
+                    Rectangle bounds = TryFitCave(caves, groundLevel);
+                    if (bounds == Rectangle.Empty)
+                        continue;
+                    
+                    caves.Add(bounds);
+
+                    GraphicsPath path = DeformCave(bounds);
+
+                    g.FillPath(sky, path);
+
+                    if (bounds.Right > Width)
+                    {
+                        g.TranslateTransform(-Width, 0);
+                        g.FillPath(sky, path);
+                        g.TranslateTransform(Width, 0);
+                    }
+                    break;
+                }
+
+            // floating islands above ground
+
+            g.Dispose();
+            bmp.RotateFlip(RotateFlipType.RotateNoneFlipY);
+            return bmp;
+        }
+
+        private double[] DetermineGroundLevel()
+        {
             double verticalExtent = GroundVerticalExtent / 2000.0 * Height; // maximum value should be half the image height
             double bumpiness = GroundBumpiness / 1666.6666667; // maximum value should be 0.6
 
@@ -46,17 +86,75 @@ namespace Terrain_generator
 
             for (int i = 0; i < groundLevel.Length; i++)
                 groundLevel[i] = groundLevel[i] * scale + offset;
-
-            for (int i = 0; i < Width; i++)
-            {
-                g.FillRectangle(ground, i, (float)(Height - groundLevel[i]), 1, (float)groundLevel[i]);
-            }
-#endregion ground level
-
-            g.Dispose();
-            return bmp;
+            return groundLevel;
         }
-        
+
+        private Rectangle TryFitCave(List<Rectangle> otherCaves, double[] groundLevel)
+        {
+            // decide on the size of cave we want to place
+            int caveWidth = 32 + r.Next(224);
+            int caveHeight = 32 + r.Next(192);
+
+            // pick an X point for the cave
+            int caveX = r.Next(Width);
+
+            // find a Y point it could be placed at, without hitting the ground
+            double yMin = minGroundHeight, yMax = Height;
+            for (int i = 0; i < caveWidth; i++)
+            {
+                int x = caveX + i;
+                if (x >= Width)
+                    x -= Width;
+
+                yMax = Math.Min(yMax, groundLevel[x] - 16);
+            }
+            if (yMax - yMin < caveMinHeight)
+                return Rectangle.Empty;
+            else if (yMax - yMin < caveHeight)
+                caveHeight = (int)(yMax - yMin);
+
+            int caveY = (int)yMin + r.Next((int)(yMax - yMin - caveHeight));
+
+            Rectangle bounds = new Rectangle(caveX, caveY, caveWidth, caveHeight);
+
+            // check that's free of other caves
+            for (int i = 0; i < otherCaves.Count; i++)
+                if (RectanglesIntersect(bounds, otherCaves[i], groundLevel.Length))
+                    return Rectangle.Empty;
+
+            return bounds;
+        }
+
+        private GraphicsPath DeformCave(Rectangle bounds)
+        {
+            GraphicsPath path = new GraphicsPath();
+
+            double[] deformation = PerlinNoise(caveDeformSteps, 0.4, 0.5, new int[] { 64, 32, 16, 8, 4 });
+            Point center = new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
+            
+            // for each step, circle around the center, going out to the distance we should for an ellipse,
+            // then moving inward by the deformation amount. Join this point to the previous one.
+
+            double stepAngle = Math.PI * 2.0 / caveDeformSteps;
+            double halfWidth = bounds.Width / 2.0, halfHeight = bounds.Height / 2.0;
+
+            double px = halfWidth * (1-deformation[0]) + center.X;
+            double py = center.Y;
+
+            for (int i = 1; i < caveDeformSteps; i++)
+            {
+                double x = Math.Cos(stepAngle * i) * halfWidth * (1-deformation[i]) + center.X;
+                double y = Math.Sin(stepAngle * i) * halfHeight * (1-deformation[i]) + center.Y;
+
+                path.AddLine((float)px, (float)py, (float)x, (float)y);
+
+                px = x; py = y;
+            }
+            
+            path.CloseFigure();
+            return path;
+        }
+
         private double[] PerlinNoise(int range, double amplitude, double persistance, int[] spacing)
         {
             double[] output = new double[range];
@@ -140,6 +238,33 @@ namespace Terrain_generator
                 if (val > max)
                     max = val;
             }
+        }
+
+        private bool RectanglesIntersect(Rectangle r1, Rectangle r2, int xMax)
+        {
+            if (r1.IntersectsWith(r2))
+                return true;
+            
+            // if BOTH stick out beyond xMax, don't need to do anything fancy. It's only if one does and the other doesn't.
+            if (r1.Right > xMax)
+            {
+                if ( r2.Right > xMax )
+                    return false;
+
+                r1.X -= xMax;
+                bool retVal = r1.IntersectsWith(r2);
+                r1.X += xMax;
+                return retVal;
+            }
+            else if (r2.Right > xMax)
+            {
+                r2.X -= xMax;
+                bool retVal = r1.IntersectsWith(r2);
+                r2.X += xMax;
+                return retVal;
+            }
+
+            return false;
         }
     }
 }

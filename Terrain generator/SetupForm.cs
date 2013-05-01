@@ -38,10 +38,21 @@ namespace Terrain_generator
                 Height = height,
                 GroundVerticalExtent = trackBarGroundAmplitude.Value,
                 GroundBumpiness = trackBarGroundBumpiness.Value,
+                CaveQuantity = trackBarCaveQuantity.Value,
                 Seed = lastSeed
             };
 
-            new TerrainForm(ti).Show();
+            if (TerrainForm == null || TerrainForm.IsDisposed)
+            {
+                TerrainForm = new TerrainForm();
+                TerrainForm.Left = this.Right;
+                TerrainForm.Top = this.Top;
+            }
+
+            TerrainForm.SetTerrain(ti);
+            TerrainForm.Show();
         }
+
+        TerrainForm TerrainForm;
     }
 }

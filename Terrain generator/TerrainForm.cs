@@ -11,13 +11,18 @@ namespace Terrain_generator
 {
     public partial class TerrainForm : Form
     {
-        public TerrainForm(TerrainInfo ti)
+        public TerrainForm()
         {
             InitializeComponent();
+        }
 
+        public void SetTerrain(TerrainInfo ti)
+        {
             Bitmap bmp = ti.Generate();
+
             pictureBox1.Width = bmp.Width;
             pictureBox1.Height = bmp.Height;
+            pictureBox1.Left = 0;
             ClientSize = new Size(pictureBox1.Width, pictureBox1.Height);            
             
             pictureBox2.Width = pictureBox1.Width;

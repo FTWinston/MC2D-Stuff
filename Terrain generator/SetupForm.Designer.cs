@@ -38,8 +38,11 @@
             this.trackBarGroundBumpiness = new System.Windows.Forms.TrackBar();
             this.label4 = new System.Windows.Forms.Label();
             this.chkLockSeed = new System.Windows.Forms.CheckBox();
+            this.trackBarCaveQuantity = new System.Windows.Forms.TrackBar();
+            this.label5 = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarGroundAmplitude)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarGroundBumpiness)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBarCaveQuantity)).BeginInit();
             this.SuspendLayout();
             // 
             // txtWidth
@@ -80,10 +83,11 @@
             // 
             // btnGenerate
             // 
-            this.btnGenerate.Location = new System.Drawing.Point(115, 198);
+            this.btnGenerate.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnGenerate.Location = new System.Drawing.Point(115, 239);
             this.btnGenerate.Name = "btnGenerate";
             this.btnGenerate.Size = new System.Drawing.Size(75, 23);
-            this.btnGenerate.TabIndex = 2;
+            this.btnGenerate.TabIndex = 100;
             this.btnGenerate.Text = "Generate";
             this.btnGenerate.UseVisualStyleBackColor = true;
             this.btnGenerate.Click += new System.EventHandler(this.btnGenerate_Click);
@@ -132,22 +136,43 @@
             // 
             // chkLockSeed
             // 
+            this.chkLockSeed.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.chkLockSeed.AutoSize = true;
-            this.chkLockSeed.Location = new System.Drawing.Point(12, 202);
+            this.chkLockSeed.Location = new System.Drawing.Point(12, 243);
             this.chkLockSeed.Name = "chkLockSeed";
             this.chkLockSeed.Size = new System.Drawing.Size(76, 17);
-            this.chkLockSeed.TabIndex = 4;
+            this.chkLockSeed.TabIndex = 99;
             this.chkLockSeed.Text = "Lock seed";
             this.chkLockSeed.UseVisualStyleBackColor = true;
+            // 
+            // trackBarCaveQuantity
+            // 
+            this.trackBarCaveQuantity.LargeChange = 2;
+            this.trackBarCaveQuantity.Location = new System.Drawing.Point(53, 140);
+            this.trackBarCaveQuantity.Name = "trackBarCaveQuantity";
+            this.trackBarCaveQuantity.Size = new System.Drawing.Size(137, 45);
+            this.trackBarCaveQuantity.TabIndex = 3;
+            this.trackBarCaveQuantity.Value = 5;
+            // 
+            // label5
+            // 
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(12, 140);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(44, 26);
+            this.label5.TabIndex = 3;
+            this.label5.Text = "Cave\r\nquantity";
             // 
             // SetupForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(202, 233);
+            this.ClientSize = new System.Drawing.Size(202, 274);
             this.Controls.Add(this.chkLockSeed);
+            this.Controls.Add(this.label5);
             this.Controls.Add(this.label4);
             this.Controls.Add(this.label3);
+            this.Controls.Add(this.trackBarCaveQuantity);
             this.Controls.Add(this.trackBarGroundBumpiness);
             this.Controls.Add(this.trackBarGroundAmplitude);
             this.Controls.Add(this.btnGenerate);
@@ -161,6 +186,7 @@
             this.Text = "Terrain generator";
             ((System.ComponentModel.ISupportInitialize)(this.trackBarGroundAmplitude)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarGroundBumpiness)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBarCaveQuantity)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -178,6 +204,8 @@
         private System.Windows.Forms.TrackBar trackBarGroundBumpiness;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.CheckBox chkLockSeed;
+        private System.Windows.Forms.TrackBar trackBarCaveQuantity;
+        private System.Windows.Forms.Label label5;
     }
 }
 
