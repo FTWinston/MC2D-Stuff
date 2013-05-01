@@ -45,19 +45,14 @@ namespace Terrain_generator
                         continue;
                     
                     caves.Add(bounds);
-
                     GraphicsPath path = DeformCave(bounds);
-
-                    g.FillPath(sky, path);
-
-                    if (bounds.Right > Width)
-                    {
-                        g.TranslateTransform(-Width, 0);
-                        g.FillPath(sky, path);
-                        g.TranslateTransform(Width, 0);
-                    }
+                    RenderPath(g, sky, path, bounds.Right > Width);
                     break;
                 }
+
+            // add a tunnel to connect each cave either to the surface or to another cave (that is in turn connected to the surface)
+            GraphicsPath tunnels = AddTunnelsBetweenCaves(r, groundLevel, caves);
+            RenderPath(g, sky, tunnels, true);
 
             // floating islands above ground
 
@@ -154,6 +149,39 @@ namespace Terrain_generator
             
             path.CloseFigure();
             return path;
+        }
+
+        private GraphicsPath AddTunnelsBetweenCaves(Random r, double[] groundLevel, List<Rectangle> caves)
+        {
+            // sort the cave from highest to lowest
+            Rectangle[] sortedCaves = new Rectangle[caves.Count];
+            for (int i = 0; i < sortedCaves.Length; i++)
+            {
+                int highest = 0; int highestVal = caves[0].Y;
+                for (int j = 1; j < caves.Count; j++)
+                {
+                    int val = caves[j].Y;
+                    if (val > highestVal)
+                    {
+                        highest = j;
+                        highestVal = val;
+                    }
+                }
+                sortedCaves[i] = caves[highest];
+                caves.RemoveAt(highest);
+            }
+
+            GraphicsPath gp = new GraphicsPath();
+
+            for (int i = sortedCaves.Length - 1; i >= 0; i--)
+            {
+                // for each cave, see if there's a higher cave that can be reached by a 0-45 degree slope upward from either end
+                // ... that ISN'T longer than the equivalent path to the surface.
+
+                // if there is, connect that.
+            }
+
+            return gp;
         }
 
         private double[] PerlinNoise(int range, double amplitude, double persistance, int[] spacing)
@@ -266,6 +294,18 @@ namespace Terrain_generator
             }
 
             return false;
+        }
+
+        private void RenderPath(Graphics g, Brush b, GraphicsPath path, bool mustDrawTwice)
+        {
+            g.FillPath(b, path);
+
+            if (mustDrawTwice)
+            {
+                g.TranslateTransform(-Width, 0);
+                g.FillPath(b, path);
+                g.TranslateTransform(Width, 0);
+            }
         }
     }
 }
