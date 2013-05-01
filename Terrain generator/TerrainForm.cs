@@ -16,13 +16,44 @@ namespace Terrain_generator
             InitializeComponent();
 
             Bitmap bmp = new Bitmap(ti.Width, ti.Height);
-            Width = pictureBox1.Width = ti.Width;
-            Height = pictureBox1.Height = ti.Height;
+            pictureBox1.Width = ti.Width;
+            pictureBox1.Height = ti.Height;
+            ClientSize = new Size(pictureBox1.Width, pictureBox1.Height);
 
             using (Graphics g = Graphics.FromImage(bmp))
                 ti.Generate(g);
             
             pictureBox1.Image = bmp;
+
+            pictureBox2.Width = pictureBox1.Width;
+            pictureBox2.Height = pictureBox1.Height;
+            pictureBox2.Left = pictureBox1.Width;
+            pictureBox2.Image = pictureBox1.Image;
+        }
+
+        const int scroll = 128;
+        private void lnkLeft_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            pictureBox1.Left += scroll;
+            pictureBox2.Left += scroll;
+
+            if (pictureBox1.Left > 0)
+            {
+                pictureBox1.Left -= pictureBox1.Width;
+                pictureBox2.Left -= pictureBox2.Width;
+            }
+        }
+
+        private void lnkRight_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            pictureBox1.Left -= scroll;
+            pictureBox2.Left -= scroll;
+
+            if (pictureBox2.Left < 0)
+            {
+                pictureBox1.Left += pictureBox1.Width;
+                pictureBox2.Left += pictureBox2.Width;
+            }
         }
     }
 }
