@@ -84,8 +84,9 @@
             this.txtSerialized.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.txtSerialized.Location = new System.Drawing.Point(0, 9);
             this.txtSerialized.Name = "txtSerialized";
-            this.txtSerialized.Size = new System.Drawing.Size(178, 13);
+            this.txtSerialized.Size = new System.Drawing.Size(250, 13);
             this.txtSerialized.TabIndex = 3;
+            this.txtSerialized.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
             // 
             // TerrainForm
             // 

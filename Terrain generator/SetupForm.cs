@@ -38,6 +38,7 @@ namespace Terrain_generator
                 try
                 {
                     ti = TerrainInfo.Deserialize(txtSerialized.Text);
+                    lastSeed = ti.Seed;
                 }
                 catch (Exception ex)
                 {
