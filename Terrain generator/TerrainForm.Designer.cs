@@ -32,6 +32,7 @@
             this.pictureBox2 = new System.Windows.Forms.PictureBox();
             this.lnkLeft = new System.Windows.Forms.LinkLabel();
             this.lnkRight = new System.Windows.Forms.LinkLabel();
+            this.txtSerialized = new System.Windows.Forms.TextBox();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox2)).BeginInit();
             this.SuspendLayout();
@@ -77,11 +78,21 @@
             this.lnkRight.Text = "Right ->";
             this.lnkRight.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.lnkRight_LinkClicked);
             // 
+            // txtSerialized
+            // 
+            this.txtSerialized.Anchor = System.Windows.Forms.AnchorStyles.Top;
+            this.txtSerialized.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.txtSerialized.Location = new System.Drawing.Point(0, 9);
+            this.txtSerialized.Name = "txtSerialized";
+            this.txtSerialized.Size = new System.Drawing.Size(178, 13);
+            this.txtSerialized.TabIndex = 3;
+            // 
             // TerrainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(178, 72);
+            this.Controls.Add(this.txtSerialized);
             this.Controls.Add(this.lnkRight);
             this.Controls.Add(this.lnkLeft);
             this.Controls.Add(this.pictureBox2);
@@ -102,5 +113,6 @@
         private System.Windows.Forms.PictureBox pictureBox2;
         private System.Windows.Forms.LinkLabel lnkLeft;
         private System.Windows.Forms.LinkLabel lnkRight;
+        private System.Windows.Forms.TextBox txtSerialized;
     }
 }

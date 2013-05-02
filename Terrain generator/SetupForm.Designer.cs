@@ -40,6 +40,7 @@
             this.chkLockSeed = new System.Windows.Forms.CheckBox();
             this.trackBarCaveQuantity = new System.Windows.Forms.TrackBar();
             this.label5 = new System.Windows.Forms.Label();
+            this.txtSerialized = new System.Windows.Forms.TextBox();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarGroundAmplitude)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarGroundBumpiness)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.trackBarCaveQuantity)).BeginInit();
@@ -163,11 +164,19 @@
             this.label5.TabIndex = 3;
             this.label5.Text = "Cave\r\nquantity";
             // 
+            // txtSerialized
+            // 
+            this.txtSerialized.Location = new System.Drawing.Point(12, 217);
+            this.txtSerialized.Name = "txtSerialized";
+            this.txtSerialized.Size = new System.Drawing.Size(178, 20);
+            this.txtSerialized.TabIndex = 101;
+            // 
             // SetupForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(202, 274);
+            this.Controls.Add(this.txtSerialized);
             this.Controls.Add(this.chkLockSeed);
             this.Controls.Add(this.label5);
             this.Controls.Add(this.label4);
@@ -206,6 +215,7 @@
         private System.Windows.Forms.CheckBox chkLockSeed;
         private System.Windows.Forms.TrackBar trackBarCaveQuantity;
         private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.TextBox txtSerialized;
     }
 }
 

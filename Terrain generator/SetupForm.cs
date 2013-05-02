@@ -33,14 +33,27 @@ namespace Terrain_generator
                 lastSeed = r.Next();
             }
 
-            TerrainInfo ti = new TerrainInfo() {
-                Width = width,
-                Height = height,
-                GroundVerticalExtent = trackBarGroundAmplitude.Value,
-                GroundBumpiness = trackBarGroundBumpiness.Value,
-                CaveQuantity = trackBarCaveQuantity.Value,
-                Seed = lastSeed
-            };
+            TerrainInfo ti = null;
+            if ( txtSerialized.Text != string.Empty )
+                try
+                {
+                    ti = TerrainInfo.Deserialize(txtSerialized.Text);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Failed to deserialize terrain: " + ex.Message);
+                    ti = null;
+                }
+
+            if ( ti == null )
+                ti = new TerrainInfo() {
+                    Width = width,
+                    Height = height,
+                    GroundVerticalExtent = trackBarGroundAmplitude.Value,
+                    GroundBumpiness = trackBarGroundBumpiness.Value,
+                    CaveQuantity = trackBarCaveQuantity.Value,
+                    Seed = lastSeed
+                };
 
             if (TerrainForm == null || TerrainForm.IsDisposed)
             {

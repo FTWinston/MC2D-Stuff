@@ -402,5 +402,55 @@ namespace Terrain_generator
                 g.TranslateTransform(Width, 0);
             }
         }
+
+        private const char separator = ';';
+        public string Serialize()
+        {
+            StringBuilder sb = new StringBuilder();
+
+            sb.Append(Seed); sb.Append(separator);
+            sb.Append(Width); sb.Append(separator);
+            sb.Append(Height); sb.Append(separator);
+            sb.Append(GroundLevel); sb.Append(separator);
+            sb.Append(GroundVerticalExtent); sb.Append(separator);
+            sb.Append(GroundBumpiness); sb.Append(separator);
+            sb.Append(CaveQuantity);
+
+            return sb.ToString();
+        }
+
+        public static TerrainInfo Deserialize(string serialized)
+        {
+            string[] parts = serialized.Split(separator);
+            if (parts.Length != 7)
+                throw new Exception("Incorrect number of parts");
+
+            int width, height, seed, groundLevel, groundVerticalExtent, groundBumpiness, caveQuantity;
+            if (!int.TryParse(parts[0], out seed))
+                throw new Exception("Invalid seed");
+            if (!int.TryParse(parts[1], out width))
+                throw new Exception("Invalid width");
+            if (!int.TryParse(parts[2], out height))
+                throw new Exception("Invalid height");
+            if (!int.TryParse(parts[3], out groundLevel))
+                throw new Exception("Invalid ground level");
+            if (!int.TryParse(parts[4], out groundVerticalExtent))
+                throw new Exception("Invalid ground vertical extent");
+            if (!int.TryParse(parts[5], out groundBumpiness))
+                throw new Exception("Invalid ground bumpiness");
+            if (!int.TryParse(parts[6], out caveQuantity))
+                throw new Exception("Invalid cave quantity");
+
+            return new TerrainInfo()
+            {
+                Width = width,
+                Height = height,
+                Seed = seed,
+                GroundLevel = groundLevel,
+                GroundVerticalExtent = groundVerticalExtent,
+                GroundBumpiness = groundBumpiness,
+                CaveQuantity = caveQuantity
+            };
+        }
     }
 }

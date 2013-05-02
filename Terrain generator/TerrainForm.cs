@@ -30,6 +30,9 @@ namespace Terrain_generator
             pictureBox2.Left = pictureBox1.Width;
             
             pictureBox2.Image = pictureBox1.Image = bmp;
+
+            txtSerialized.Text = ti.Serialize();
+            txtSerialized.Location = new Point(Width / 2 - txtSerialized.Width / 2, 9);
         }
 
         const int scroll = 128;
