@@ -16,7 +16,7 @@ namespace Terrain_generator
         private Random r;
 
         private const double minGroundHeight = 16, caveMinWidth = 128, caveMaxWidth = 512, caveMinHeight = 64, caveMaxHeight = 320;
-        private const int caveDeformSteps = 256, tunnelHeight = 20;
+        private const int caveDeformSteps = 256, tunnelHeight = 20, maxTunnelLength = 400;
         private static readonly Brush ground = new SolidBrush(Color.Black), sky = new SolidBrush(Color.White);
 
         public Bitmap Generate()
@@ -110,12 +110,12 @@ namespace Terrain_generator
             int caveY = (int)yMin + r.Next((int)(yMax - yMin - caveHeight));
 
             Rectangle bounds = new Rectangle(caveX, caveY, caveWidth, caveHeight);
-
+            /*
             // check that's free of other caves
             for (int i = 0; i < otherCaves.Count; i++)
                 if (RectanglesIntersect(bounds, otherCaves[i], groundLevel.Length))
                     return Rectangle.Empty;
-
+            */
             return bounds;
         }
 
@@ -189,7 +189,7 @@ namespace Terrain_generator
                     Point start = new Point(thisCaveCenter.X, thisCaveCenter.Y);
                     Point dest = GetCaveTunnelPoint(destCave);
                     
-                    if (IsValidTunnelSlope(start, dest))
+                    if (IsValidTunnelRoute(start, dest))
                     {
                         double dist = Distance(start, dest);
                         if (dist < distToBestCave)
@@ -206,7 +206,7 @@ namespace Terrain_generator
                     else
                         dest.Offset(Width, 0);
 
-                    if (IsValidTunnelSlope(start, dest))
+                    if (IsValidTunnelRoute(start, dest))
                     {
                         double dist = Distance(start, dest);
                         if (dist < distToBestCave)
@@ -240,10 +240,13 @@ namespace Terrain_generator
             return paths;
         }
 
-        private bool IsValidTunnelSlope(Point start, Point dest)
+        private bool IsValidTunnelRoute(Point start, Point dest)
         {
             double gradient = (double)(dest.Y - start.Y) / (dest.X > start.X ? (dest.X - start.X) : (start.X - dest.X));
-            return gradient < 1 && gradient > 0;
+            if (gradient > 1 || gradient < 0)
+                return false;
+
+            return Distance(start, dest) <= maxTunnelLength;
         }
 
         private Point GetCaveTunnelPoint(Rectangle bounds)
