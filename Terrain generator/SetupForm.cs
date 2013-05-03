@@ -33,11 +33,11 @@ namespace Terrain_generator
                 lastSeed = r.Next();
             }
 
-            TerrainInfo ti = null;
+            TerrainGenerator ti = null;
             if ( txtSerialized.Text != string.Empty )
                 try
                 {
-                    ti = TerrainInfo.Deserialize(txtSerialized.Text);
+                    ti = TerrainGenerator.Deserialize(txtSerialized.Text);
                     lastSeed = ti.Seed;
                 }
                 catch (Exception ex)
@@ -47,12 +47,12 @@ namespace Terrain_generator
                 }
 
             if ( ti == null )
-                ti = new TerrainInfo() {
+                ti = new TerrainGenerator() {
                     Width = width,
                     Height = height,
                     GroundVerticalExtent = trackBarGroundAmplitude.Value,
                     GroundBumpiness = trackBarGroundBumpiness.Value,
-                    CaveQuantity = trackBarCaveQuantity.Value,
+                    CaveComplexity = trackBarCaveQuantity.Value,
                     Seed = lastSeed
                 };
 

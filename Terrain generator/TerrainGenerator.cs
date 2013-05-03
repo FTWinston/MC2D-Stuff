@@ -7,11 +7,11 @@ using System.Drawing.Drawing2D;
 
 namespace Terrain_generator
 {
-    public class TerrainInfo
+    public class TerrainGenerator
     {
         public int Width, Height, Seed = -1;
         public int GroundLevel = 300, GroundVerticalExtent = 500, GroundBumpiness = 500; // ground level is in pixels from the bottom, bumpiness & amplitude range from 0-1000
-        public int CaveQuantity = 5; // 0 - 10
+        public int CaveComplexity = 5; // 1 - 8, with 1 meaning "none"
 
         private Random r;
 
@@ -34,6 +34,8 @@ namespace Terrain_generator
             for (int i = 0; i < Width; i++)
                 g.FillRectangle(ground, i, 0, 1, (float)groundLevel[i]);
 
+            GenerateCaveSystem(g, r, groundLevel);
+            /*
             // now make some tunnels underground from the surface, and generate some caves around them
             int retriesLeft = 10;
             for (int cave = 0; cave < CaveQuantity; cave++)
@@ -47,6 +49,8 @@ namespace Terrain_generator
                     cave--;
                 }
             }
+            */
+
 
             // floating islands above ground
 
@@ -78,6 +82,227 @@ namespace Terrain_generator
             return groundLevel;
         }
 
+        private void GenerateCaveSystem(Graphics g, Random r, double[] groundLevel)
+        {
+            if (CaveComplexity < 2)
+                return;
+
+            // pick some random points underground, based on the desired cave complexity
+            List<Point> nodes = PickCaveNetworkNodes(r, groundLevel);
+            for (int i = 0; i < 5; i++)
+                SpreadOutCaveNetworkNodes(nodes, groundLevel);
+            
+            // create a relative neighborhood graph for these points
+            Graph caveGraph = GenerateCaveGraph(nodes);
+
+            Pen debug1 = new Pen(Color.FromArgb(128, Color.Red), tunnelHeight);
+            Pen debug2 = new Pen(Color.FromArgb(128, Color.Green), 3);
+
+            // draw the graph, for debugging
+            foreach (Graph.Node n in caveGraph.Nodes)
+            {
+                g.DrawEllipse(debug1, n.X - tunnelHeight / 2, n.Y - tunnelHeight / 2, tunnelHeight, tunnelHeight);
+
+                foreach ( Graph.Link l in n.LinkedNodes )
+                {
+                    int wrap;
+                    if (l.Rightwards)
+                        wrap = n.X > l.Node.X ? 1 : 0;
+                    else
+                        wrap = n.X < l.Node.X ? 2 : 0;
+
+                    // draw line from n to n2, accounting for wrapping
+                    // the wrapping doesn't work!
+                    switch (wrap)
+                    {
+                        case 0:
+                            g.DrawLine(debug2, n.X, n.Y, l.Node.X, l.Node.Y);
+                            break;
+                        case 1:
+                            g.DrawLine(debug2, n.X, n.Y, l.Node.X + Width, l.Node.Y);
+                            g.DrawLine(debug2, n.X - Width, n.Y, l.Node.X, l.Node.Y);
+                            break;
+                        case 2:
+                            g.DrawLine(debug2, n.X, n.Y, l.Node.X - Width, l.Node.Y);
+                            g.DrawLine(debug2, n.X + Width, n.Y, l.Node.X, l.Node.Y);
+                            break;
+                    }
+                }
+            }
+
+/*
+compute a delaunay triangulation for these, looped on the x-axis
+	http://en.wikipedia.org/wiki/Delaunay_triangulation
+	if any connection is too steep, discard it.
+	if any connection goes above ground, discard it.
+	if any node has only one connection, discard it.
+
+remove connections, going down to either a relative neighborhood graph or a gabriel graph
+	http://en.wikipedia.org/wiki/Relative_neighborhood_graph
+	http://en.wikipedia.org/wiki/Gabriel_graph	
+
+pick 2-4 points (based on cave complexity) on the surface to be entrances
+	do so by moving upward (at an appropriate angle) from the "topmost" tunnel nodes
+	add connections to these
+
+apply perlin noise to the "line" of each connection, with the highest magnitude at the middle, and very low at the ends
+
+render each tunnel, by calculating a ceiling and a floor by adding perlin noise onto the noisy line.
+	the ceiling noise have a much higher magnitude than the floor noise
+
+for each (non-surface) connection, try rendering some larger caves along it,
+	with a maximum size such that they don't overlap any other tunnels (or their caves)
+*/
+
+        }
+
+        private Graph GenerateCaveGraph(List<Point> nodes)
+        {
+            Graph caveGraph = new Graph();
+            foreach (Point p in nodes)
+                caveGraph.Nodes.Add(new Graph.Node(p.X, p.Y));
+
+            for (int i = 0; i < caveGraph.Nodes.Count; i++)
+            {
+                Graph.Node a = caveGraph.Nodes[i];
+                for (int j = i + 1; j < caveGraph.Nodes.Count; j++)
+                {
+                    Graph.Node b = caveGraph.Nodes[j];
+                    double distSq = DistanceSq(a.X, a.Y, b.X, b.Y);
+
+                    bool valid = true;
+                    for (int k = j + 1; k < caveGraph.Nodes.Count; k++)
+                    {
+                        Graph.Node c = caveGraph.Nodes[k];
+
+                        if (DistanceSq(a.X, a.Y, c.X, c.Y) < distSq && DistanceSq(b.X, b.Y, c.X, c.Y) < distSq)
+                        {
+                            valid = false;
+                            break;
+                        }
+                    }
+
+                    bool abRightward;
+                    if (a.X > b.X)
+                        abRightward = a.X - b.X > Width / 2;
+                    else
+                        abRightward = b.X - a.X < Width / 2;
+
+                    if (valid)
+                    {
+                        a.LinkedNodes.Add(new Graph.Link(b, abRightward));
+                        b.LinkedNodes.Add(new Graph.Link(a, !abRightward));
+                    }
+                }
+            }
+            return caveGraph;
+        }
+
+        private const int minCaveNodeHeight = (int)minGroundHeight + tunnelHeight;
+        private const int minCaveNodeDepth = minCaveNodeHeight + 15;
+        private List<Point> PickCaveNetworkNodes(Random r, double[] groundLevel)
+        {
+            List<Point> nodes = new List<Point>();
+            int retries = 10;
+            for (int i = 0; i < CaveComplexity; i++)
+            {
+                int x = r.Next(Width);
+                int yMin = minCaveNodeHeight;
+                int yMax = (int)groundLevel[x] - 50;
+                if (yMax < yMin)
+                {// a point can't fit at this x coordinate. Try again, but don't retry indefinitely.
+                    if (retries > 0)
+                    {
+                        retries--;
+                        i--;
+                    }
+                    continue;
+                }
+
+                int y = yMin + r.Next(yMax - yMin);
+
+                Point p = new Point(x, y);
+
+                // check this point isn't too close to the other points
+                /*if ( i != 0 ) 
+                {
+                    int distSq;
+                    Point closest = FindClosestPoint(p, nodes, out distSq);
+                    
+                    if (distSq < 5000)
+                    {
+                        if (retries > 0)
+                        {
+                            retries--;
+                            i--;
+                        }
+                        continue;
+                    }
+
+                }*/
+                nodes.Add(p);
+            }
+
+            return nodes;
+        }
+
+        private void SpreadOutCaveNetworkNodes(List<Point> nodes, double[] groundLevel)
+        {
+            // apply an inverse-square distance based force between each pair of nodes (up to a fixed max)
+            const double forceStrength = 400000, surfaceBottomForceStrength = 250000;
+
+            for ( int i=0; i<nodes.Count; i++ )
+            {
+                Point node = nodes[i];
+
+                double forceX = 0, forceY = 0;
+
+                // surface and bottom should repel nodes
+                double depth = groundLevel[node.X] - node.Y;
+                forceY -= surfaceBottomForceStrength / depth / depth / depth;
+                forceY += surfaceBottomForceStrength / node.Y / node.Y / node.Y;
+
+                // nodes should repel each other
+                for ( int j=0; j<nodes.Count; j++ )
+                {
+                    if ( j == i )
+                        continue;
+
+                    // the force should wrap about the x-axis
+                    Point other = nodes[j];
+                    if (other.X > node.X)
+                    {
+                        if (other.X - node.X > Width / 2)
+                            other.X -= Width;
+                    }
+                    else if (node.X - other.X > Width / 2)
+                        other.X += Width;
+
+                    Size separation = new Size(other.X - node.X, other.Y - node.Y);
+                    double distSq = separation.Width * separation.Width + separation.Height * separation.Height;
+                    double dist = Math.Sqrt(distSq);
+
+                    forceX -= separation.Width * forceStrength / (distSq * dist);
+                    forceY -= separation.Height * forceStrength / (distSq * dist);
+                }
+
+                node = new Point(node.X + (int)forceX, node.Y + (int)forceY);
+                while (node.X >= Width)
+                    node.X -= -Width;
+                while (node.X < 0)
+                    node.X += Width;
+
+                if (node.Y < minCaveNodeHeight)
+                    node.Y = minCaveNodeHeight;
+                else if (node.Y > groundLevel[node.X] - minCaveNodeDepth)
+                    node.Y = (int)groundLevel[node.X] - minCaveNodeDepth;
+
+                nodes[i] = node;
+            }
+        }
+
+
+        /*
         private const int minTunnelWidth = 200;
 
         private Point[] FitCaveSystem(Random r, double[] groundLevel)
@@ -135,6 +360,7 @@ namespace Terrain_generator
 
             return new Rectangle(caveX, lowerMiddle.Y - caveHeight * 1 / 3, caveWidth, caveHeight);
         }
+        */
 
         private GraphicsPath DeformCave(Rectangle bounds)
         {
@@ -167,9 +393,23 @@ namespace Terrain_generator
             return path;
         }
 
-        private static double Distance(Point p1, Point p2)
+        // this accounts for horizontal wrapping
+        private double DistanceSq(int x1, int y1, int x2, int y2)
         {
-            return Math.Sqrt((p1.X - p2.X) * (p1.X - p2.X) + (p1.Y - p2.Y) * (p1.Y - p2.Y));
+            if (x1 > x2)
+            {
+                if (x1 - x2 > Width / 2)
+                    x2 += Width;
+            }
+            else if (x2 - x1 > Width / 2)
+                x1 += Width;
+ 
+            return (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);
+        }
+
+        private double Distance(Point p1, Point p2)
+        {
+            return Math.Sqrt(DistanceSq(p1.X, p1.Y, p2.X, p2.Y));
         }
 
         private static Point GetRectangleCenter(Rectangle r)
@@ -262,6 +502,26 @@ namespace Terrain_generator
             }
         }
 
+        private Point FindClosestPoint(Point p, List<Point> nodes, out int distSq)
+        {
+            Point bestPoint = nodes[0];
+            distSq = (bestPoint.X - p.X) * (bestPoint.X - p.X) + (bestPoint.Y - p.Y) * (bestPoint.Y - p.Y);
+
+            for (int i = 1; i < nodes.Count; i++)
+            {
+                Point test = nodes[i];
+                int testDist = (test.X - p.X) * (test.X - p.X) + (test.Y - p.Y) * (test.Y - p.Y);
+
+                if (testDist < distSq)
+                {
+                    bestPoint = test;
+                    distSq = testDist;
+                }
+            }
+
+            return bestPoint;
+        }
+
         private bool RectanglesIntersect(Rectangle r1, Rectangle r2, int xMax)
         {
             if (r1.IntersectsWith(r2))
@@ -334,12 +594,12 @@ namespace Terrain_generator
             sb.Append(GroundLevel); sb.Append(separator);
             sb.Append(GroundVerticalExtent); sb.Append(separator);
             sb.Append(GroundBumpiness); sb.Append(separator);
-            sb.Append(CaveQuantity);
+            sb.Append(CaveComplexity);
 
             return sb.ToString();
         }
 
-        public static TerrainInfo Deserialize(string serialized)
+        public static TerrainGenerator Deserialize(string serialized)
         {
             string[] parts = serialized.Split(separator);
             if (parts.Length != 7)
@@ -361,7 +621,7 @@ namespace Terrain_generator
             if (!int.TryParse(parts[6], out caveQuantity))
                 throw new Exception("Invalid cave quantity");
 
-            return new TerrainInfo()
+            return new TerrainGenerator()
             {
                 Width = width,
                 Height = height,
@@ -369,7 +629,7 @@ namespace Terrain_generator
                 GroundLevel = groundLevel,
                 GroundVerticalExtent = groundVerticalExtent,
                 GroundBumpiness = groundBumpiness,
-                CaveQuantity = caveQuantity
+                CaveComplexity = caveQuantity
             };
         }
     }

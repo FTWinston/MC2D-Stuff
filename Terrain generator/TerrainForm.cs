@@ -16,7 +16,7 @@ namespace Terrain_generator
             InitializeComponent();
         }
 
-        public void SetTerrain(TerrainInfo ti)
+        public void SetTerrain(TerrainGenerator ti)
         {
             Bitmap bmp = ti.Generate();
 

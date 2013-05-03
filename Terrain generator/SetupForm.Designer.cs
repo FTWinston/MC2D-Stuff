@@ -66,7 +66,7 @@
             // 
             // txtHeight
             // 
-            this.txtHeight.Location = new System.Drawing.Point(151, 12);
+            this.txtHeight.Location = new System.Drawing.Point(165, 12);
             this.txtHeight.Name = "txtHeight";
             this.txtHeight.Size = new System.Drawing.Size(39, 20);
             this.txtHeight.TabIndex = 1;
@@ -76,7 +76,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(107, 15);
+            this.label2.Location = new System.Drawing.Point(121, 15);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(38, 13);
             this.label2.TabIndex = 1;
@@ -85,7 +85,7 @@
             // btnGenerate
             // 
             this.btnGenerate.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnGenerate.Location = new System.Drawing.Point(115, 239);
+            this.btnGenerate.Location = new System.Drawing.Point(129, 239);
             this.btnGenerate.Name = "btnGenerate";
             this.btnGenerate.Size = new System.Drawing.Size(75, 23);
             this.btnGenerate.TabIndex = 100;
@@ -96,7 +96,7 @@
             // trackBarGroundAmplitude
             // 
             this.trackBarGroundAmplitude.LargeChange = 100;
-            this.trackBarGroundAmplitude.Location = new System.Drawing.Point(53, 38);
+            this.trackBarGroundAmplitude.Location = new System.Drawing.Point(67, 38);
             this.trackBarGroundAmplitude.Maximum = 1000;
             this.trackBarGroundAmplitude.Name = "trackBarGroundAmplitude";
             this.trackBarGroundAmplitude.Size = new System.Drawing.Size(137, 45);
@@ -117,7 +117,7 @@
             // trackBarGroundBumpiness
             // 
             this.trackBarGroundBumpiness.LargeChange = 100;
-            this.trackBarGroundBumpiness.Location = new System.Drawing.Point(53, 89);
+            this.trackBarGroundBumpiness.Location = new System.Drawing.Point(67, 89);
             this.trackBarGroundBumpiness.Maximum = 1000;
             this.trackBarGroundBumpiness.Name = "trackBarGroundBumpiness";
             this.trackBarGroundBumpiness.Size = new System.Drawing.Size(137, 45);
@@ -131,9 +131,9 @@
             this.label4.AutoSize = true;
             this.label4.Location = new System.Drawing.Point(12, 89);
             this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(42, 39);
+            this.label4.Size = new System.Drawing.Size(57, 26);
             this.label4.TabIndex = 3;
-            this.label4.Text = "Ground\r\nbump-\r\niness";
+            this.label4.Text = "Ground\r\nbumpiness";
             // 
             // chkLockSeed
             // 
@@ -149,7 +149,9 @@
             // trackBarCaveQuantity
             // 
             this.trackBarCaveQuantity.LargeChange = 2;
-            this.trackBarCaveQuantity.Location = new System.Drawing.Point(53, 140);
+            this.trackBarCaveQuantity.Location = new System.Drawing.Point(67, 140);
+            this.trackBarCaveQuantity.Maximum = 8;
+            this.trackBarCaveQuantity.Minimum = 2;
             this.trackBarCaveQuantity.Name = "trackBarCaveQuantity";
             this.trackBarCaveQuantity.Size = new System.Drawing.Size(137, 45);
             this.trackBarCaveQuantity.TabIndex = 3;
@@ -160,28 +162,28 @@
             this.label5.AutoSize = true;
             this.label5.Location = new System.Drawing.Point(12, 140);
             this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(44, 26);
+            this.label5.Size = new System.Drawing.Size(56, 26);
             this.label5.TabIndex = 3;
-            this.label5.Text = "Cave\r\nquantity";
+            this.label5.Text = "Cave\r\ncomplexity";
             // 
             // txtSerialized
             // 
             this.txtSerialized.Location = new System.Drawing.Point(12, 217);
             this.txtSerialized.Name = "txtSerialized";
-            this.txtSerialized.Size = new System.Drawing.Size(178, 20);
+            this.txtSerialized.Size = new System.Drawing.Size(192, 20);
             this.txtSerialized.TabIndex = 101;
             // 
             // SetupForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(202, 274);
+            this.ClientSize = new System.Drawing.Size(216, 274);
+            this.Controls.Add(this.trackBarCaveQuantity);
             this.Controls.Add(this.txtSerialized);
             this.Controls.Add(this.chkLockSeed);
             this.Controls.Add(this.label5);
             this.Controls.Add(this.label4);
             this.Controls.Add(this.label3);
-            this.Controls.Add(this.trackBarCaveQuantity);
             this.Controls.Add(this.trackBarGroundBumpiness);
             this.Controls.Add(this.trackBarGroundAmplitude);
             this.Controls.Add(this.btnGenerate);
