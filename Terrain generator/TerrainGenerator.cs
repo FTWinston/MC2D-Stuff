@@ -5,10 +5,31 @@ using System.Text;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 
+using CaveGraph = Terrain_generator.Graph<Terrain_generator.TerrainGenerator.CaveNode, Terrain_generator.TerrainGenerator.CaveLink>;
+
 namespace Terrain_generator
 {
     public class TerrainGenerator
     {
+        internal class CaveNode : CaveGraph.Node
+        {
+            public CaveNode(int x, int y, bool isSurface)
+            {
+                X = x; Y = y;
+                IsSurface = isSurface;
+            }
+            public int X, Y;
+            public bool IsSurface;
+        }
+
+        internal class CaveLink : CaveGraph.Link
+        {
+            public CaveLink(CaveNode node, bool rightward) :
+                base(node)
+            { Rightward = rightward; }
+            public bool Rightward;
+        }
+
         public int Width, Height, Seed = -1;
         public int GroundLevel = 300, GroundVerticalExtent = 500, GroundBumpiness = 500; // ground level is in pixels from the bottom, bumpiness & amplitude range from 0-1000
         public int CaveComplexity = 5; // 1 - 8, with 1 meaning "none"
@@ -91,22 +112,36 @@ namespace Terrain_generator
             List<Point> nodes = PickCaveNetworkNodes(r, groundLevel);
             for (int i = 0; i < 5; i++)
                 SpreadOutCaveNetworkNodes(nodes, groundLevel);
-            
+
+
             // create a relative neighborhood graph for these points
-            Graph caveGraph = GenerateCaveGraph(nodes);
+            CaveGraph caveGraph = GenerateCaveGraph(nodes);
+
+            // connect to the surface
+            AddCaveSurfaceAccess(r, caveGraph, groundLevel);
+
+            // see which nodes can only reach the surface via "too steep" connections
+            // for each,
+            //  try removing the "too steep" connection,
+            //  replace it with a shallow connection to another node instead
+            //  if that doens't work, remove the "unescapable" nodes
+
 
             Pen debug1 = new Pen(Color.FromArgb(128, Color.Red), tunnelHeight);
             Pen debug2 = new Pen(Color.FromArgb(128, Color.Green), 3);
 
             // draw the graph, for debugging
-            foreach (Graph.Node n in caveGraph.Nodes)
+            int num = 0;
+            foreach (var n in caveGraph.Nodes)
             {
+                num++;
                 g.DrawEllipse(debug1, n.X - tunnelHeight / 2, n.Y - tunnelHeight / 2, tunnelHeight, tunnelHeight);
+                g.DrawString(num.ToString(), new Font(FontFamily.GenericMonospace, 12), sky, n.X, n.Y);
 
-                foreach ( Graph.Link l in n.LinkedNodes )
+                foreach ( var l in n.LinkedNodes )
                 {
                     int wrap;
-                    if (l.Rightwards)
+                    if (l.Rightward)
                         wrap = n.X > l.Node.X ? 1 : 0;
                     else
                         wrap = n.X < l.Node.X ? 2 : 0;
@@ -130,21 +165,12 @@ namespace Terrain_generator
                 }
             }
 
+            for (int i = 0; i < caveGraph.Nodes.Count; i++)
+                Console.WriteLine(string.Format("node {0} is at {1},{2}", i + 1, caveGraph.Nodes[i].X, caveGraph.Nodes[i].Y));
+                //for ( int j=i+1; j<caveGraph.Nodes.Count; j++ )
+                    //Console.WriteLine(string.Format("Distance from {0} to {1}: {2}", i+1, j+1, Distance(new Point(caveGraph.Nodes[i].X, caveGraph.Nodes[i].Y), new Point(caveGraph.Nodes[j].X, caveGraph.Nodes[j].Y))));*/
+
 /*
-compute a delaunay triangulation for these, looped on the x-axis
-	http://en.wikipedia.org/wiki/Delaunay_triangulation
-	if any connection is too steep, discard it.
-	if any connection goes above ground, discard it.
-	if any node has only one connection, discard it.
-
-remove connections, going down to either a relative neighborhood graph or a gabriel graph
-	http://en.wikipedia.org/wiki/Relative_neighborhood_graph
-	http://en.wikipedia.org/wiki/Gabriel_graph	
-
-pick 2-4 points (based on cave complexity) on the surface to be entrances
-	do so by moving upward (at an appropriate angle) from the "topmost" tunnel nodes
-	add connections to these
-
 apply perlin noise to the "line" of each connection, with the highest magnitude at the middle, and very low at the ends
 
 render each tunnel, by calculating a ceiling and a floor by adding perlin noise onto the noisy line.
@@ -153,29 +179,45 @@ render each tunnel, by calculating a ceiling and a floor by adding perlin noise 
 for each (non-surface) connection, try rendering some larger caves along it,
 	with a maximum size such that they don't overlap any other tunnels (or their caves)
 */
-
         }
 
-        private Graph GenerateCaveGraph(List<Point> nodes)
+        private CaveGraph GenerateCaveGraph(List<Point> nodes)
         {
-            Graph caveGraph = new Graph();
+            var caveGraph = new CaveGraph();
             foreach (Point p in nodes)
-                caveGraph.Nodes.Add(new Graph.Node(p.X, p.Y));
+                caveGraph.Nodes.Add(new CaveNode(p.X, p.Y, false));
 
             for (int i = 0; i < caveGraph.Nodes.Count; i++)
             {
-                Graph.Node a = caveGraph.Nodes[i];
+                CaveNode a = caveGraph.Nodes[i];
                 for (int j = i + 1; j < caveGraph.Nodes.Count; j++)
                 {
-                    Graph.Node b = caveGraph.Nodes[j];
-                    double distSq = DistanceSq(a.X, a.Y, b.X, b.Y);
+                    CaveNode b = caveGraph.Nodes[j];
+
+                    // if wrapping on the x-axis gives a smaller circle, use that instead
+                    int ax = a.X, bx = b.X;
+                    if (ax > bx)
+                    {
+                        if (ax - bx > Width / 2)
+                            bx += Width;
+                    }
+                    else if (bx - ax > Width / 2)
+                        ax += Width;
+                    int centerX = (ax + bx) / 2, centerY = (a.Y + b.Y) / 2;
+                    int radiusSq = DistanceSq(ax, a.Y, centerX, centerY);
 
                     bool valid = true;
-                    for (int k = j + 1; k < caveGraph.Nodes.Count; k++)
+                    for (int k = 0; k < caveGraph.Nodes.Count; k++)
                     {
-                        Graph.Node c = caveGraph.Nodes[k];
+                        if (k == i || k == j)
+                            continue;
 
-                        if (DistanceSq(a.X, a.Y, c.X, c.Y) < distSq && DistanceSq(b.X, b.Y, c.X, c.Y) < distSq)
+                        CaveNode c = caveGraph.Nodes[k];
+
+                        /*int radius = (int)Math.Sqrt(radiusSq);
+                        g.DrawEllipse(new Pen(Color.Orange), centerX - radius, centerY - radius, radius * 2, radius * 2);
+                        g.DrawEllipse(new Pen(Color.Orange), centerX - radius - Width, centerY - radius, radius * 2, radius * 2);*/
+                        if (InsideCircle(c.X, c.Y, centerX, centerY, radiusSq))
                         {
                             valid = false;
                             break;
@@ -190,12 +232,20 @@ for each (non-surface) connection, try rendering some larger caves along it,
 
                     if (valid)
                     {
-                        a.LinkedNodes.Add(new Graph.Link(b, abRightward));
-                        b.LinkedNodes.Add(new Graph.Link(a, !abRightward));
+                        a.LinkedNodes.Add(new CaveLink(b, abRightward));
+                        b.LinkedNodes.Add(new CaveLink(a, !abRightward));
                     }
                 }
             }
             return caveGraph;
+        }
+
+        private bool InsideCircle(int px, int py, int centerX, int centerY, int radiusSq)
+        {
+            if (centerX - px > Width / 2)
+                px += Width;
+
+            return DistanceSq(px, py, centerX, centerY) < radiusSq;
         }
 
         private const int minCaveNodeHeight = (int)minGroundHeight + tunnelHeight;
@@ -301,66 +351,237 @@ for each (non-surface) connection, try rendering some larger caves along it,
             }
         }
 
-
-        /*
-        private const int minTunnelWidth = 200;
-
-        private Point[] FitCaveSystem(Random r, double[] groundLevel)
+        private class CaveExitInfo : IComparable<CaveExitInfo>
         {
-            int x1 = r.Next(groundLevel.Length);
-            int x3 = x1 + r.Next(Width - minTunnelWidth * 2);
-            int y1 = (int)groundLevel[x1] + tunnelHeight;
-            int y3 = (int)groundLevel[Wrap(x3)] + tunnelHeight;
+            public Point Exit;
+            public CaveNode Node;
+            public int cost;
+            public bool rightward;
+
+            public int CompareTo(CaveExitInfo other)
+            {
+                return cost.CompareTo(other.cost);
+            }
+        }
+
+        private void AddCaveSurfaceAccess(Random r, CaveGraph caveGraph, double[] groundLevel)
+        {
+            int numExits = CaveComplexity > 5 ? 3 : 2;
+            List<CaveExitInfo> possibleExits = new List<CaveExitInfo>();
             
-            // choose the "mid" (lowest) point, such that it's below ground, but no deeper than 2/3 the distance between x1 & x3,
-            // from the lowest of 1 & 3.
-            int x2 = x1 + r.Next((x3-x1) * 2 / 3) + (x3-x1) / 3;
-            int lowestEnd = Math.Min(y1, y3);
-            int y2max = Math.Min(lowestEnd - 50 - tunnelHeight, (int)groundLevel[Wrap(x2)] - 100);
-            int y2min = Math.Max(lowestEnd - (x3 - x1) * 2 / 3, (int)minGroundHeight);
+            foreach (CaveNode node in caveGraph.Nodes)
+            {
+                Point exit = new Point(node.X, node.Y);
+                bool wrapped = false;
+                while (groundLevel[exit.X] > exit.Y)
+                {
+                    exit.X -= 2; exit.Y++;
+                    if (exit.X < 0)
+                    {
+                        exit.X += Width;
+                        wrapped = true;
+                    }
+                }
+                
+                TryAddCaveExit(caveGraph, possibleExits, node, exit, false, wrapped);
 
-            // Also, it should be no more than ~35 degrees down from 1 or 3.
-            y2min = Math.Max(y2min, y1 - (x2 - x1) * 2 / 3);
-            y2min = Math.Max(y2min, y3 - (x3 - x2) * 2 / 3);
+                exit = new Point(node.X, node.Y);
+                wrapped = false;
+                while (groundLevel[exit.X] > exit.Y)
+                {
+                    exit.X += 2; exit.Y++;
+                    if (exit.X >= Width)
+                    {
+                        exit.X -= Width;
+                        wrapped = true;
+                    }
+                }
 
-            if (y2min > y2max)
-                return null;
+                TryAddCaveExit(caveGraph, possibleExits, node, exit, true, wrapped);
+            }
 
-            int y2 = y2min + (int)(r.NextDouble() * (y2max - y2min));
+            possibleExits.Sort();
+            for ( int i=0; i<possibleExits.Count && i < numExits; i++ )
+            {
+                CaveExitInfo exit = possibleExits[i];
 
-            return new Point[] { new Point(x1, y1), new Point(x2, y2), new Point(x3, y3) };
+                // don't use any exit that crosses the path of another exit. That would create a single entry chokepoint.
+                bool disallowed = false;
+                for (int j = 0; j < i; j++)
+                {
+                    CaveExitInfo other = possibleExits[j];
+                    if (LinesIntersect(exit.Node.X, exit.Node.Y, exit.Exit.X, exit.Exit.Y, exit.rightward,
+                                        other.Node.X, other.Node.Y, other.Exit.X, other.Exit.Y, other.rightward))
+                    {
+                        i--;
+                        disallowed = true;
+                        break;
+                    }
+                }
+                if (disallowed)
+                    continue;
+
+                var exitNode = new CaveNode(exit.Exit.X, exit.Exit.Y, true);
+                caveGraph.Nodes.Add(exitNode);
+                exitNode.LinkedNodes.Add(new CaveLink(exit.Node, !exit.rightward));
+                exit.Node.LinkedNodes.Add(new CaveLink(exitNode, exit.rightward));
+            }
         }
 
-        private void RenderCaves(Graphics g, Random r, Point[] points, double[] groundLevel)
+        private void TryAddCaveExit(CaveGraph caveGraph, List<CaveExitInfo> exits, CaveNode node, Point exit, bool rightward, bool wrapped)
         {
-            // draw the core tunnel
-            GraphicsPath gp = new GraphicsPath();
-            gp.AddCurve(points, 0.3f);
-            DrawPath(g, tunnel, gp, points[points.Length - 1].X >= Width);
+            // does this link cross any existing ones? only consider rightward nodes, cos we'd do them all twice otherwise
+            bool valid = true;
+            foreach (CaveNode other in caveGraph.Nodes)
+            {
+                if (other == node)
+                    continue;
 
-            // now add caves to that tunnel
-            Point tunnelMid = points[1];
+                foreach (CaveLink link in other.LinkedNodes)
+                    if (link.Rightward && link.Node != node)
+                    {
+                        if (LinesIntersect(node.X, node.Y,
+                            exit.X, exit.Y, rightward,
+                            other.X, other.Y,
+                            link.Node.X, link.Node.Y, link.Rightward))
+                        {
+                            valid = false;
+                            break;
+                        }
+                    }
 
-            Rectangle caveBounds = TryFitCave(tunnelMid, groundLevel);
-            g.FillPath(sky, DeformCave(caveBounds));
+                if (!valid)
+                    break;
+            }
+
+            if (!valid)
+                return;
+
+            // it's valid. Determine a "cost" for it
+            int cost = DistanceSq(node.X, node.Y, exit.X, exit.Y);
+
+            int widthSq = Width * Width;
+
+            // if too close (angularly) to another link from this node, mark me down
+            foreach ( CaveLink link in node.LinkedNodes )
+            {
+                double cosAngle = GetCosAngle(rightward && exit.X < node.X ? exit.X + Width : exit.X, exit.Y,
+                    node.X, node.Y,
+                    link.Rightward && link.Node.X < node.X ? link.Node.X + Width : link.Node.X, link.Node.Y);
+                if (cosAngle < 0.866) // > 30 degrees
+                    continue;
+
+                cost += (int)((cosAngle - 0.866) * widthSq);
+            }
+
+            foreach (CaveExitInfo other in exits)
+            {
+                // multiple exits from the one node is bad, so if there's another, mark the worst one (this or that) down a lot
+                if (other.Node == node)
+                {
+                    if (other.cost > cost)
+                        other.cost += widthSq;
+                    else
+                        cost += widthSq;
+                    break;
+                }
+
+                // exits shouldn't be too close to each other on the surface
+                // if there's another one nearby, mark down the one (this or that) with the worst score
+                int distSq = DistanceSq(exit.X, exit.Y, other.Exit.X, other.Exit.Y);
+                if (other.cost > cost)
+                    other.cost += widthSq / distSq;
+                else
+                    cost += widthSq / distSq;
+            }
+
+            exits.Add(new CaveExitInfo()
+            {
+                Node = node,
+                rightward = rightward,
+                Exit = exit,
+                cost = cost
+            });
         }
 
-
-        private Rectangle TryFitCave(Point lowerMiddle, double[] groundLevel)
+        private double GetCosAngle(int x1, int y1, int x2, int y2, int x3, int y3)
         {
-            // decide on the size of the cave we want to place, that won't break the surface
-            int caveWidth = (int)(caveMinWidth + r.NextDouble() * (caveMaxWidth - caveMinWidth));
-            int caveX = lowerMiddle.X - caveWidth / 2;
+            double p12sq = DistanceSq(x1, y1, x2, y2);
+            double p23sq = DistanceSq(x2, y2, x3, y3);
+            double p13sq = DistanceSq(x1, y1, x3, y3);
 
-            double maxHeight = caveMaxHeight;
-            maxHeight = Math.Min(maxHeight, groundLevel[Wrap(lowerMiddle.X)] - lowerMiddle.Y - 5);
-            maxHeight = Math.Min(maxHeight, groundLevel[Wrap(caveX)] - lowerMiddle.Y - 5);
-            maxHeight = Math.Min(maxHeight, groundLevel[Wrap(caveX + caveWidth)] - lowerMiddle.Y - 5);
-            int caveHeight = (int)(caveMinHeight + r.NextDouble() * (maxHeight - caveMinHeight));
-
-            return new Rectangle(caveX, lowerMiddle.Y - caveHeight * 1 / 3, caveWidth, caveHeight);
+            return (p12sq + p23sq - p13sq) / (2.0 * Math.Sqrt(p12sq * p23sq));
         }
-        */
+
+        private bool LinesIntersect(int aX1, int aY1, int aX2, int aY2, bool aRightward, int bX1, int bY1, int bX2, int bY2, bool bRightward)
+        {
+            if (aRightward)
+            {
+                if (aX1 > aX2)
+                    aX2 += Width;
+            }
+            else if (aX2 > aX1)
+                aX2 -= Width;
+
+            if (bRightward)
+            {
+                if (bX1 > bX2)
+                    bX2 += Width;
+            }
+            else if (bX2 > bX1)
+                bX2 -= Width;
+
+            int A1 = aY2 - aY1;
+            int B1 = aX1 - aX2;
+            int C1 = A1 * aX1 + B1 * aY1;
+
+            int A2 = bY2 - bY1;
+            int B2 = bX1 - bX2;
+            int C2 = A2 * bX1 + B2 * bY1;
+
+            double determinant = A1 * B2 - A2 * B1;
+            if (determinant == 0)
+                return false;
+            
+            double x = (B2 * C1 - B1 * C2) / determinant;
+            double y = (A1 * C2 - A2 * C1) / determinant;
+
+            // check that these x & y values fall within the range of BOTH lines
+
+            if (aRightward)
+            {
+                if (x > aX2 || x < aX1)
+                    return false;
+            }
+            else if (x > aX1 || x < aX2)
+                return false;
+
+            if (bRightward)
+            {
+                if (x > bX2 || x < bX1)
+                    return false;
+            }
+            else if (x > bX1 || x < bX2)
+                return false;
+
+            if (aY2 > aY1)
+            {
+                if (y > aY2 || y < aY1)
+                    return false;
+            }
+            else if (y > aY1 || y < aY2)
+                return false;
+
+            if (bY2 > bY1)
+            {
+                if (y > bY2 || y < bY1)
+                    return false;
+            }
+            else if (y > bY1 || y < bY2)
+                return false;
+
+            return true;
+        }
 
         private GraphicsPath DeformCave(Rectangle bounds)
         {
@@ -394,7 +615,7 @@ for each (non-surface) connection, try rendering some larger caves along it,
         }
 
         // this accounts for horizontal wrapping
-        private double DistanceSq(int x1, int y1, int x2, int y2)
+        private int DistanceSq(int x1, int y1, int x2, int y2)
         {
             if (x1 > x2)
             {
@@ -405,6 +626,11 @@ for each (non-surface) connection, try rendering some larger caves along it,
                 x1 += Width;
  
             return (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);
+        }
+
+        private double Distance(int x1, int y1, int x2, int y2)
+        {
+            return Math.Sqrt(DistanceSq(x1, y1, x2, y2));
         }
 
         private double Distance(Point p1, Point p2)

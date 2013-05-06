@@ -151,7 +151,7 @@
             this.trackBarCaveQuantity.LargeChange = 2;
             this.trackBarCaveQuantity.Location = new System.Drawing.Point(67, 140);
             this.trackBarCaveQuantity.Maximum = 8;
-            this.trackBarCaveQuantity.Minimum = 2;
+            this.trackBarCaveQuantity.Minimum = 1;
             this.trackBarCaveQuantity.Name = "trackBarCaveQuantity";
             this.trackBarCaveQuantity.Size = new System.Drawing.Size(137, 45);
             this.trackBarCaveQuantity.TabIndex = 3;
