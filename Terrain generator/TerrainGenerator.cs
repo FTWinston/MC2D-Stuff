@@ -1,4 +1,9 @@
-﻿using System;
+﻿//#define DEBUG_WORLDGEN_1
+//#define DEBUG_WORLDGEN_2
+//#define DEBUG_WORLDGEN_3
+#define DEBUG_WORLDGEN_4
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -108,14 +113,15 @@ namespace Terrain_generator
             if (CaveComplexity < 2)
                 return;
 
-            // pick some random points underground, based on the desired cave complexity
-            List<Point> nodes = PickCaveNetworkNodes(r, groundLevel);
-            for (int i = 0; i < 5; i++)
-                SpreadOutCaveNetworkNodes(nodes, groundLevel);
-
+            // pick some random points underground, based on the desired cave complexity, spread out from each other
+            List<Point> nodes = PickCaveNetworkNodes(r, groundLevel, g);
 
             // create a relative neighborhood graph for these points
             CaveGraph caveGraph = GenerateCaveGraph(nodes);
+
+#if DEBUG_WORLDGEN_3
+            RenderGraph(g, caveGraph);
+#endif
 
             // connect to the surface
             AddCaveSurfaceAccess(r, caveGraph, groundLevel);
@@ -126,7 +132,23 @@ namespace Terrain_generator
             //  replace it with a shallow connection to another node instead
             //  if that doens't work, remove the "unescapable" nodes
 
+#if DEBUG_WORLDGEN_4
+            RenderGraph(g, caveGraph);
+#endif
 
+/*
+apply perlin noise to the "line" of each connection, with the highest magnitude at the middle, and very low at the ends
+
+render each tunnel, by calculating a ceiling and a floor by adding perlin noise onto the noisy line.
+	the ceiling noise have a much higher magnitude than the floor noise
+
+for each (non-surface) connection, try rendering some larger caves along it,
+	with a maximum size such that they don't overlap any other tunnels (or their caves)
+*/
+        }
+
+        private void RenderGraph(Graphics g, CaveGraph caveGraph)
+        {
             Pen debug1 = new Pen(Color.FromArgb(128, Color.Red), tunnelHeight);
             Pen debug2 = new Pen(Color.FromArgb(128, Color.Green), 3);
 
@@ -138,47 +160,37 @@ namespace Terrain_generator
                 g.DrawEllipse(debug1, n.X - tunnelHeight / 2, n.Y - tunnelHeight / 2, tunnelHeight, tunnelHeight);
                 g.DrawString(num.ToString(), new Font(FontFamily.GenericMonospace, 12), sky, n.X, n.Y);
 
-                foreach ( var l in n.LinkedNodes )
-                {
-                    int wrap;
-                    if (l.Rightward)
-                        wrap = n.X > l.Node.X ? 1 : 0;
-                    else
-                        wrap = n.X < l.Node.X ? 2 : 0;
-
-                    // draw line from n to n2, accounting for wrapping
-                    // the wrapping doesn't work!
-                    switch (wrap)
-                    {
-                        case 0:
-                            g.DrawLine(debug2, n.X, n.Y, l.Node.X, l.Node.Y);
-                            break;
-                        case 1:
-                            g.DrawLine(debug2, n.X, n.Y, l.Node.X + Width, l.Node.Y);
-                            g.DrawLine(debug2, n.X - Width, n.Y, l.Node.X, l.Node.Y);
-                            break;
-                        case 2:
-                            g.DrawLine(debug2, n.X, n.Y, l.Node.X - Width, l.Node.Y);
-                            g.DrawLine(debug2, n.X + Width, n.Y, l.Node.X, l.Node.Y);
-                            break;
-                    }
-                }
+                foreach (var l in n.LinkedNodes)
+                    DrawLineWrap(g, debug2, l.Rightward, n.X, n.Y, l.Node.X, l.Node.Y);
             }
 
             for (int i = 0; i < caveGraph.Nodes.Count; i++)
                 Console.WriteLine(string.Format("node {0} is at {1},{2}", i + 1, caveGraph.Nodes[i].X, caveGraph.Nodes[i].Y));
-                //for ( int j=i+1; j<caveGraph.Nodes.Count; j++ )
-                    //Console.WriteLine(string.Format("Distance from {0} to {1}: {2}", i+1, j+1, Distance(new Point(caveGraph.Nodes[i].X, caveGraph.Nodes[i].Y), new Point(caveGraph.Nodes[j].X, caveGraph.Nodes[j].Y))));*/
+        }
 
-/*
-apply perlin noise to the "line" of each connection, with the highest magnitude at the middle, and very low at the ends
+        // draw a line, accounting for wrapping
+        private void DrawLineWrap(Graphics g, Pen p, bool rightward, int x1, int y1, int x2, int y2)
+        {
+            int wrap;
+            if (rightward)
+                wrap = x1 > x2 ? 1 : 0;
+            else
+                wrap = x1 < x2 ? 2 : 0;
 
-render each tunnel, by calculating a ceiling and a floor by adding perlin noise onto the noisy line.
-	the ceiling noise have a much higher magnitude than the floor noise
-
-for each (non-surface) connection, try rendering some larger caves along it,
-	with a maximum size such that they don't overlap any other tunnels (or their caves)
-*/
+            switch (wrap)
+            {
+                case 0:
+                    g.DrawLine(p, x1, y1, x2, y2);
+                    break;
+                case 1:
+                    g.DrawLine(p, x1, y1, x2 + Width, y2);
+                    g.DrawLine(p, x1 - Width, y1, x2, y2);
+                    break;
+                case 2:
+                    g.DrawLine(p, x1, y1, x2 - Width, y2);
+                    g.DrawLine(p, x1 + Width, y1, x2, y2);
+                    break;
+            }
         }
 
         private CaveGraph GenerateCaveGraph(List<Point> nodes)
@@ -250,7 +262,7 @@ for each (non-surface) connection, try rendering some larger caves along it,
 
         private const int minCaveNodeHeight = (int)minGroundHeight + tunnelHeight;
         private const int minCaveNodeDepth = minCaveNodeHeight + 15;
-        private List<Point> PickCaveNetworkNodes(Random r, double[] groundLevel)
+        private List<Point> PickCaveNetworkNodes(Random r, double[] groundLevel, Graphics g)
         {
             List<Point> nodes = new List<Point>();
             int retries = 10;
@@ -271,84 +283,87 @@ for each (non-surface) connection, try rendering some larger caves along it,
 
                 int y = yMin + r.Next(yMax - yMin);
 
-                Point p = new Point(x, y);
+#if DEBUG_WORLDGEN_1 || DEBUG_WORLDGEN_2
+                Pen debug1 = new Pen(Color.FromArgb(128, Color.Red), tunnelHeight);
+                g.DrawEllipse(debug1, x - tunnelHeight / 2, y - tunnelHeight / 2, tunnelHeight, tunnelHeight);
+#endif
+#if DEBUG_WORLDGEN_1
+                g.DrawString((i+1).ToString(), new Font(FontFamily.GenericMonospace, 12), sky, x, y);
+#endif
 
-                // check this point isn't too close to the other points
-                /*if ( i != 0 ) 
-                {
-                    int distSq;
-                    Point closest = FindClosestPoint(p, nodes, out distSq);
-                    
-                    if (distSq < 5000)
-                    {
-                        if (retries > 0)
-                        {
-                            retries--;
-                            i--;
-                        }
-                        continue;
-                    }
-
-                }*/
-                nodes.Add(p);
+                nodes.Add(FindSpaceForNode(x, y, nodes, groundLevel, g));
             }
 
             return nodes;
         }
 
-        private void SpreadOutCaveNetworkNodes(List<Point> nodes, double[] groundLevel)
+        private Point FindSpaceForNode(int x, int y, List<Point> nodes, double[] groundLevel, Graphics g)
         {
-            // apply an inverse-square distance based force between each pair of nodes (up to a fixed max)
+            // apply an inverse-cubed distance based force between each pair of nodes (up to a fixed max)
+            // and an inverse-squared distance based force from the surface and bottom
             const double forceStrength = 400000, surfaceBottomForceStrength = 250000;
 
-            for ( int i=0; i<nodes.Count; i++ )
+            for (int step = 0; step < 5; step++)
             {
-                Point node = nodes[i];
-
-                double forceX = 0, forceY = 0;
+#if DEBUG_WORLDGEN_2
+                int prevX = x; int prevY = y;
+#endif
+                double fx = 0, fy = 0;
 
                 // surface and bottom should repel nodes
-                double depth = groundLevel[node.X] - node.Y;
-                forceY -= surfaceBottomForceStrength / depth / depth / depth;
-                forceY += surfaceBottomForceStrength / node.Y / node.Y / node.Y;
+                double depth = groundLevel[x] - y, doubleY = y;
+                fy -= surfaceBottomForceStrength / depth / depth / depth;
+                fy += surfaceBottomForceStrength / doubleY / doubleY / doubleY;
 
-                // nodes should repel each other
-                for ( int j=0; j<nodes.Count; j++ )
+                foreach (Point other in nodes)
                 {
-                    if ( j == i )
-                        continue;
-
                     // the force should wrap about the x-axis
-                    Point other = nodes[j];
-                    if (other.X > node.X)
+                    int otherX = other.X;
+                    if (other.X > x)
                     {
-                        if (other.X - node.X > Width / 2)
-                            other.X -= Width;
+                        if (other.X - x > Width / 2)
+                            otherX -= Width;
                     }
-                    else if (node.X - other.X > Width / 2)
-                        other.X += Width;
+                    else if (x - other.X > Width / 2)
+                        otherX += Width;
 
-                    Size separation = new Size(other.X - node.X, other.Y - node.Y);
+                    Size separation = new Size(otherX - x, other.Y - y);
                     double distSq = separation.Width * separation.Width + separation.Height * separation.Height;
                     double dist = Math.Sqrt(distSq);
 
-                    forceX -= separation.Width * forceStrength / (distSq * dist);
-                    forceY -= separation.Height * forceStrength / (distSq * dist);
+                    fx -= separation.Width * forceStrength / (distSq * dist);
+                    fy -= separation.Height * forceStrength / (distSq * dist);
                 }
 
-                node = new Point(node.X + (int)forceX, node.Y + (int)forceY);
-                while (node.X >= Width)
-                    node.X -= -Width;
-                while (node.X < 0)
-                    node.X += Width;
+                x += (int)fx; y += (int)fy;
+                
+                while (x >= Width)
+                    x -= -Width;
+                while (x < 0)
+                    x += Width;
 
-                if (node.Y < minCaveNodeHeight)
-                    node.Y = minCaveNodeHeight;
-                else if (node.Y > groundLevel[node.X] - minCaveNodeDepth)
-                    node.Y = (int)groundLevel[node.X] - minCaveNodeDepth;
+                if (y < minCaveNodeHeight)
+                    y = minCaveNodeHeight;
+                else if (y > groundLevel[x] - minCaveNodeDepth)
+                    y = (int)groundLevel[x] - minCaveNodeDepth;
 
-                nodes[i] = node;
+
+#if DEBUG_WORLDGEN_2
+                // draw circle
+                Pen debug2 = new Pen(Color.FromArgb(128, Color.Green), tunnelHeight);
+                g.DrawEllipse(debug2, x - tunnelHeight / 2, y - tunnelHeight / 2, tunnelHeight, tunnelHeight);
+
+                // line connecting it to the previous
+                DrawLineWrap(g, debug2, fx > 0, prevX, prevY, x, y);
+#endif
             }
+
+#if DEBUG_WORLDGEN_2
+            // draw label at the end point
+            g.DrawString((nodes.Count+1).ToString(), new Font(FontFamily.GenericMonospace, 12), sky, x, y);
+#endif
+
+            return new Point(x, y);
         }
 
         private class CaveExitInfo : IComparable<CaveExitInfo>
@@ -413,7 +428,6 @@ for each (non-surface) connection, try rendering some larger caves along it,
                     if (LinesIntersect(exit.Node.X, exit.Node.Y, exit.Exit.X, exit.Exit.Y, exit.rightward,
                                         other.Node.X, other.Node.Y, other.Exit.X, other.Exit.Y, other.rightward))
                     {
-                        i--;
                         disallowed = true;
                         break;
                     }
