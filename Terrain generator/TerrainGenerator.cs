@@ -503,10 +503,12 @@ for each (non-surface) connection, try rendering some larger caves along it,
                 // exits shouldn't be too close to each other on the surface
                 // if there's another one nearby, mark down the one (this or that) with the worst score
                 int distSq = DistanceSq(exit.X, exit.Y, other.Exit.X, other.Exit.Y);
+                int extraCost = distSq == 0 ? int.MaxValue : widthSq / distSq;
+                
                 if (other.cost > cost)
-                    other.cost += widthSq / distSq;
+                    other.cost += extraCost;
                 else
-                    cost += widthSq / distSq;
+                    cost += extraCost;
             }
 
             exits.Add(new CaveExitInfo()
