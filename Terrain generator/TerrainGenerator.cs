@@ -2,6 +2,7 @@
 //#define DEBUG_WORLDGEN_2
 //#define DEBUG_WORLDGEN_3
 #define DEBUG_WORLDGEN_4
+//#define DEBUG_WORLDGEN_5
 
 using System;
 using System.Collections.Generic;
@@ -126,13 +127,18 @@ namespace Terrain_generator
             // connect to the surface
             AddCaveSurfaceAccess(r, caveGraph, groundLevel);
 
+#if DEBUG_WORLDGEN_4
+            RenderGraph(g, caveGraph);
+#endif
+
             // see which nodes can only reach the surface via "too steep" connections
             // for each,
             //  try removing the "too steep" connection,
             //  replace it with a shallow connection to another node instead
             //  if that doens't work, remove the "unescapable" nodes
+            FixupInescapableNodes(caveGraph);
 
-#if DEBUG_WORLDGEN_4
+#if DEBUG_WORLDGEN_5
             RenderGraph(g, caveGraph);
 #endif
 
@@ -520,6 +526,74 @@ for each (non-surface) connection, try rendering some larger caves along it,
             });
         }
 
+        private void FixupInescapableNodes(CaveGraph caveGraph)
+        {
+            List<CaveNode> canExit = new List<CaveNode>(), cantExit = new List<CaveNode>();
+            foreach (CaveNode node in caveGraph.Nodes)
+                if (node.IsSurface)
+                    canExit.Add(node);
+                else
+                    cantExit.Add(node);
+
+            int prevNum, num = cantExit.Count;
+            do
+            {
+                prevNum = num;
+
+                for ( int i=0; i<cantExit.Count; i++ )
+                {// if this node is connected to one in canExit, via a slope that isn't too steep
+                    CaveNode node = cantExit[i];
+                    foreach ( CaveLink link in node.LinkedNodes )
+                        if (canExit.Contains(link.Node))
+                        {
+                            bool passable = link.Node.Y <= node.Y;
+
+                            if (!passable)
+                            {// its not downward, so ensure it isn't too steep
+                                double dx = link.Node.X - node.X;
+                                if (link.Rightward)
+                                {
+                                    if (link.Node.X < node.X)
+                                        dx = link.Node.X + Width - node.X;
+                                }
+                                else if (link.Node.X > node.X)
+                                    dx = node.X + Width - link.Node.X;
+
+                                passable = Math.Abs((link.Node.Y - node.Y) / dx) < 1;
+                            }
+
+                            if (passable)
+                            {
+                                canExit.Add(node);
+                                cantExit.RemoveAt(i);
+                                i--;
+                                break;
+                            }
+                        }
+                }
+
+                num = cantExit.Count;
+            } while (num != 0 && num != prevNum); // continue as long as there's change
+
+            if (cantExit.Count == 0)
+                return;
+
+            ;
+
+            // just remove all those that are inescapable - including all links to them
+            foreach (CaveNode node in cantExit)
+            {
+                foreach ( CaveLink link in node.LinkedNodes )
+                    for ( int i=0; i<link.Node.LinkedNodes.Count; i++ )
+                        if ( link.Node.LinkedNodes[i].Node == node )
+                        {
+                            link.Node.LinkedNodes.RemoveAt(i);
+                            break;
+                        }
+                caveGraph.Nodes.Remove(node);
+            }
+        }
+        
         private double GetCosAngle(int x1, int y1, int x2, int y2, int x3, int y3)
         {
             double p12sq = DistanceSq(x1, y1, x2, y2);
