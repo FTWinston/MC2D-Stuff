@@ -48,13 +48,13 @@ namespace Terrain_generator
 
             if ( ti == null )
                 ti = new TerrainGenerator() {
+                    Seed = lastSeed,
                     Width = width,
-                    Height = height,
-                    GroundVerticalExtent = trackBarGroundAmplitude.Value,
-                    GroundBumpiness = trackBarGroundBumpiness.Value,
-                    CaveComplexity = trackBarCaveQuantity.Value,
-                    Seed = lastSeed
-                };
+                    Height = height};
+
+            ti.GroundVerticalExtent = chkGroundAmplitude.Checked ? trackBarGroundAmplitude.Value : -1;
+            ti.GroundBumpiness = chkGroundBumpiness.Checked ? trackBarGroundBumpiness.Value : -1;
+            ti.CaveComplexity = chkCaveComplexity.Checked ? trackBarCaveComplexity.Value : -1;
 
             if (TerrainForm == null || TerrainForm.IsDisposed)
             {
@@ -68,5 +68,20 @@ namespace Terrain_generator
         }
 
         TerrainForm TerrainForm;
+
+        private void chkGroundHeightVariation_CheckedChanged(object sender, EventArgs e)
+        {
+            trackBarGroundAmplitude.Enabled = chkGroundAmplitude.Checked;
+        }
+
+        private void chkGroundBumpiness_CheckedChanged(object sender, EventArgs e)
+        {
+            trackBarGroundBumpiness.Enabled = chkGroundBumpiness.Checked;
+        }
+
+        private void chkCaveComplexity_CheckedChanged(object sender, EventArgs e)
+        {
+            trackBarCaveComplexity.Enabled = chkCaveComplexity.Checked;
+        }
     }
 }

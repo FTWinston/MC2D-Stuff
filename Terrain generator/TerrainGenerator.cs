@@ -37,12 +37,13 @@ namespace Terrain_generator
         }
 
         public int Width, Height, Seed = -1;
-        public int GroundLevel = 300, GroundVerticalExtent = 500, GroundBumpiness = 500; // ground level is in pixels from the bottom, bumpiness & amplitude range from 0-1000
+        public int GroundVerticalExtent = -1, GroundBumpiness = -1; // ground level is in pixels from the bottom, bumpiness & amplitude range from 0-1000
         public int CaveComplexity = 5; // 1 - 8, with 1 meaning "none"
 
         private Random r;
 
         private const double minGroundHeight = 16, caveMinWidth = 128, caveMaxWidth = 512, caveMinHeight = 64, caveMaxHeight = 320;
+        private const double GroundLevelHeightFraction = 0.390625;
         private const int caveDeformSteps = 256, tunnelHeight = 20, maxTunnelLength = 400;
         private static readonly Brush ground = new SolidBrush(Color.Black), sky = new SolidBrush(Color.White);
         private static readonly Pen tunnel = new Pen(Color.White, tunnelHeight);
@@ -57,7 +58,7 @@ namespace Terrain_generator
             g.FillRectangle(sky, 0, 0, Width, Height);
 
             // first, sort out the ground level
-            double[] groundLevel = DetermineGroundLevel();
+            double[] groundLevel = DetermineGroundLevel(r);
             for (int i = 0; i < Width; i++)
                 g.FillRectangle(ground, i, 0, 1, (float)groundLevel[i]);
 
@@ -86,10 +87,10 @@ namespace Terrain_generator
             return bmp;
         }
 
-        private double[] DetermineGroundLevel()
+        private double[] DetermineGroundLevel(Random r)
         {
-            double verticalExtent = GroundVerticalExtent / 2000.0 * Height; // maximum value should be half the image height
-            double bumpiness = GroundBumpiness / 1666.6666667; // maximum value should be 0.6
+            double verticalExtent = (GroundVerticalExtent < 0 ? r.Next(1001) : GroundVerticalExtent) / 2000.0 * Height; // maximum value should be half the image height
+            double bumpiness = (GroundBumpiness < 0 ? r.Next(1001) : GroundBumpiness) / 1666.6666667; // maximum value should be 0.6
 
             double[] groundLevel = PerlinNoise(Width, 1.0, bumpiness, new int[] { 256, 128, 64, 32 });
 
@@ -99,7 +100,7 @@ namespace Terrain_generator
             // scale such that max - min = verticalRange,
             // and offset such that such that (min + max)/2 = ground level ... min should be >= minGroundHeight
             double scale = verticalExtent / (max - min);
-            double offset = GroundLevel - (max + min) * scale / 2.0;
+            double offset = GroundLevelHeightFraction * Height - (max + min) * scale / 2.0;
             min = min * scale + offset;
             if (min < minGroundHeight)
                 scale += minGroundHeight - min;
@@ -111,11 +112,13 @@ namespace Terrain_generator
 
         private void GenerateCaveSystem(Graphics g, Random r, double[] groundLevel)
         {
-            if (CaveComplexity < 2)
+            int caveComplexity = CaveComplexity < 1 ? r.Next(1, 9) : CaveComplexity;
+
+            if (caveComplexity < 2)
                 return;
 
             // pick some random points underground, based on the desired cave complexity, spread out from each other
-            List<Point> nodes = PickCaveNetworkNodes(r, groundLevel, g);
+            List<Point> nodes = PickCaveNetworkNodes(r, groundLevel, caveComplexity, g);
 
             // create a relative neighborhood graph for these points
             CaveGraph caveGraph = GenerateCaveGraph(nodes);
@@ -125,7 +128,7 @@ namespace Terrain_generator
 #endif
 
             // connect to the surface
-            AddCaveSurfaceAccess(r, caveGraph, groundLevel);
+            AddCaveSurfaceAccess(r, caveGraph, groundLevel, caveComplexity);
 
 #if DEBUG_WORLDGEN_4
             RenderGraph(g, caveGraph);
@@ -268,11 +271,11 @@ for each (non-surface) connection, try rendering some larger caves along it,
 
         private const int minCaveNodeHeight = (int)minGroundHeight + tunnelHeight;
         private const int minCaveNodeDepth = minCaveNodeHeight + 15;
-        private List<Point> PickCaveNetworkNodes(Random r, double[] groundLevel, Graphics g)
+        private List<Point> PickCaveNetworkNodes(Random r, double[] groundLevel, int caveComplexity, Graphics g)
         {
             List<Point> nodes = new List<Point>();
             int retries = 10;
-            for (int i = 0; i < CaveComplexity; i++)
+            for (int i = 0; i < caveComplexity; i++)
             {
                 int x = r.Next(Width);
                 int yMin = minCaveNodeHeight;
@@ -385,9 +388,9 @@ for each (non-surface) connection, try rendering some larger caves along it,
             }
         }
 
-        private void AddCaveSurfaceAccess(Random r, CaveGraph caveGraph, double[] groundLevel)
+        private void AddCaveSurfaceAccess(Random r, CaveGraph caveGraph, double[] groundLevel, int caveComplexity)
         {
-            int numExits = CaveComplexity > 5 ? 3 : 2;
+            int numExits = caveComplexity > 5 ? 3 : 2;
             List<CaveExitInfo> possibleExits = new List<CaveExitInfo>();
             
             foreach (CaveNode node in caveGraph.Nodes)
@@ -906,46 +909,63 @@ for each (non-surface) connection, try rendering some larger caves along it,
 
             sb.Append(Seed); sb.Append(separator);
             sb.Append(Width); sb.Append(separator);
-            sb.Append(Height); sb.Append(separator);
-            sb.Append(GroundLevel); sb.Append(separator);
-            sb.Append(GroundVerticalExtent); sb.Append(separator);
-            sb.Append(GroundBumpiness); sb.Append(separator);
-            sb.Append(CaveComplexity);
+            sb.Append(Height);
 
+            if (GroundVerticalExtent >= 0 || GroundBumpiness >= 0 && CaveComplexity >= 0)
+            {
+                sb.Append(separator);
+
+                if (GroundVerticalExtent >= 0)
+                    sb.Append(GroundVerticalExtent);
+                sb.Append(separator);
+
+                if (GroundBumpiness >= 0)
+                    sb.Append(GroundBumpiness);
+                sb.Append(separator);
+
+                if (CaveComplexity >= 0)
+                    sb.Append(CaveComplexity);
+            }
             return sb.ToString();
         }
 
         public static TerrainGenerator Deserialize(string serialized)
         {
             string[] parts = serialized.Split(separator);
-            if (parts.Length != 7)
+            if (parts.Length != 3 && parts.Length != 6)
                 throw new Exception("Incorrect number of parts");
 
-            int width, height, seed, groundLevel, groundVerticalExtent, groundBumpiness, caveQuantity;
+            int width, height, seed, groundVerticalExtent, groundBumpiness, caveComplexity;
             if (!int.TryParse(parts[0], out seed))
                 throw new Exception("Invalid seed");
             if (!int.TryParse(parts[1], out width))
                 throw new Exception("Invalid width");
             if (!int.TryParse(parts[2], out height))
                 throw new Exception("Invalid height");
-            if (!int.TryParse(parts[3], out groundLevel))
-                throw new Exception("Invalid ground level");
-            if (!int.TryParse(parts[4], out groundVerticalExtent))
+
+            if (parts.Length < 4 || parts[3].Length == 0)
+                groundVerticalExtent = -1;
+            else if (!int.TryParse(parts[3], out groundVerticalExtent))
                 throw new Exception("Invalid ground vertical extent");
-            if (!int.TryParse(parts[5], out groundBumpiness))
+
+            if (parts.Length < 5 || parts[4].Length == 0)
+                groundBumpiness = -1;
+            else if (!int.TryParse(parts[4], out groundBumpiness))
                 throw new Exception("Invalid ground bumpiness");
-            if (!int.TryParse(parts[6], out caveQuantity))
-                throw new Exception("Invalid cave quantity");
+
+            if (parts.Length < 6 || parts[5].Length == 0)
+                caveComplexity = -1;
+            else if (!int.TryParse(parts[5], out caveComplexity))
+                throw new Exception("Invalid cave complexity");
 
             return new TerrainGenerator()
             {
                 Width = width,
                 Height = height,
                 Seed = seed,
-                GroundLevel = groundLevel,
                 GroundVerticalExtent = groundVerticalExtent,
                 GroundBumpiness = groundBumpiness,
-                CaveComplexity = caveQuantity
+                CaveComplexity = caveComplexity
             };
         }
     }
