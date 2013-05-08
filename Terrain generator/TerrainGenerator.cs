@@ -92,7 +92,7 @@ namespace Terrain_generator
             double verticalExtent = (GroundVerticalExtent < 0 ? r.Next(1001) : GroundVerticalExtent) / 2000.0 * Height; // maximum value should be half the image height
             double bumpiness = (GroundBumpiness < 0 ? r.Next(1001) : GroundBumpiness) / 1666.6666667; // maximum value should be 0.6
 
-            double[] groundLevel = PerlinNoise(Width, 1.0, bumpiness, new int[] { 256, 128, 64, 32 });
+            double[] groundLevel = PerlinNoise(Width, 1.0, bumpiness, new int[] { 256, 128, 64, 32 }, false);
 
             double min, max;
             FindMinMax(groundLevel, out min, out max);
@@ -680,7 +680,7 @@ for each (non-surface) connection, try rendering some larger caves along it,
         {
             GraphicsPath path = new GraphicsPath(FillMode.Alternate);
 
-            double[] deformation = PerlinNoise(caveDeformSteps, 0.4, 0.5, new int[] { 64, 32, 16, 8 });
+            double[] deformation = PerlinNoise(caveDeformSteps, 0.4, 0.5, new int[] { 64, 32, 16, 8 }, false);
             Point center = GetRectangleCenter(bounds);
 
             // for each step, circle around the center, going out to the distance we should for an ellipse,
@@ -736,12 +736,12 @@ for each (non-surface) connection, try rendering some larger caves along it,
             return new Point(r.X + r.Width / 2, r.Y + r.Height / 2);
         }
 
-        private double[] PerlinNoise(int range, double amplitude, double persistance, int[] spacing)
+        private double[] PerlinNoise(int range, double amplitude, double persistance, int[] spacing, bool fixedEnds)
         {
             double[] output = new double[range];
             for (int o = 0; o < spacing.Length; o++)
             {
-                double[] noise = GenerateNoise(range, spacing[o]);
+                double[] noise = GenerateNoise(range, spacing[o], fixedEnds);
                 for (int i = 0; i < range; i++)
                     output[i] += noise[i] * amplitude;
                 amplitude *= persistance;
@@ -749,7 +749,7 @@ for each (non-surface) connection, try rendering some larger caves along it,
             return output;
         }
 
-        private double[] GenerateNoise(int range, int smoothness)
+        private double[] GenerateNoise(int range, int smoothness, bool fixedEnds)
         {
             if ( range % smoothness != 0 )
                 throw new Exception("Range must divide by smoothness!");
@@ -757,51 +757,74 @@ for each (non-surface) connection, try rendering some larger caves along it,
             double[] output = new double[range];
 
             // generate fixed points
-            for (int i = 0; i < range; i+=smoothness)
+            for (int i = fixedEnds ? smoothness : 0; i < range; i+=smoothness)
                 output[i] = r.NextDouble();
 
-            int a = range - smoothness, b = 0, c = smoothness, d = smoothness * 2;
-            
-            if (c >= range)
-            {
-                c -= range;
-                d -= range;
-            }
-            else if (d >= range)
-            {
-                d -= range;
-            }
+            int a = fixedEnds ? -smoothness : range - smoothness, b = 0, c = smoothness, d = smoothness * 2;
+
+            if (fixedEnds)
+                output[0] = 0;
+            else
+                if (c >= range)
+                {
+                    c -= range;
+                    d -= range;
+                }
+                else if (d >= range)
+                    d -= range;
 
             // interpolate the remaining points
-            for (int i = 0; i < range; i++)
+            for (int i = 1; i < range; i++)
             {
                 if (i % smoothness == 0)
                     continue;
+                bool stepped;
                 if (i > b + smoothness)
                 {
                     a = b; b = c; c = d;
-                    d = c + smoothness;
+                    d = d + smoothness;
+                    stepped = true;
+                }
+                else
+                    stepped = false;
 
-                    if (c >= range)
+                double A, B = output[b], C, D;
+                if (fixedEnds)
+                {// beyond either end, assume all values are 0
+                    A = a < 0 ? 0 : output[a];
+                    C = c >= range ? 0 : output[c];
+                    D = d >= range ? 0 : output[d];
+                }
+                else
+                {// beyond the ends, wrap around
+                    if (stepped)
                     {
-                        c -= range;
-                        d -= range;
+                        if (c >= range)
+                        {
+                            c -= range;
+                            d -= range;
+                        }
+                        else if (d >= range)
+                            d -= range;
                     }
-                    else if (d >= range)
-                    {
-                        d -= range;
-                    }
+
+                    A = output[a];
+                    C = output[c];
+                    D = output[d];
                 }
 
-                double P = output[d] - output[c] - output[a] + output[b];
-                double Q = output[a] - output[b] - P;
-                double R = output[c] - output[a];
-                double S = output[b];
+                double P = D - C - A + B;
+                double Q = A - B - P;
+                double R = C - A;
+                double S = B;
 
                 double mu = (double)(i-b)/smoothness;
 
                 output[i] = P * mu * mu * mu + Q * mu * mu + R * mu + S;
             }
+
+            if (fixedEnds)
+                output[range - 1] = 0;
 
             return output;
         }
