@@ -176,14 +176,9 @@ for each (non-surface) connection, try rendering some larger caves along it,
                         for (int i = 1; i < noise.Length; i++)
                         {
                             x = node.X + (float)(dx * i + noise[i] * noiseScaleX); y = node.Y + (float)(dy * i + noise[i] * noiseScaleY);
-                            bool rightward = px <= x;
-
-                            if (x >= Width)
-                                x -= Width;
-                            else if (x < 0)
-                                x += Width;
 
 #if DEBUG_WORLDGEN_6
+                            bool rightward = px <= x;
                             Pen debug = new Pen(i % 2 == 0 ? Color.Red : Color.Green, 1);
                             DrawLineWrap(g, debug, rightward, px, py, x, y);
 #endif
@@ -219,9 +214,53 @@ for each (non-surface) connection, try rendering some larger caves along it,
         {
             int wrap;
             if (rightward)
-                wrap = x1 > x2 ? 1 : 0;
+            {
+                if (x2 > Width)
+                {
+                    if (x1 > Width)
+                    {
+                        x1 -= Width;
+                        x2 -= Width;
+                        wrap = x1 > x2 ? 1 : 0;
+                    }
+                    else
+                    {
+                        x2 -= Width;
+                        wrap = 1;
+                    }
+                }
+                else if (x1 > Width)
+                {
+                    x1 -= Width;
+                    wrap = 0;
+                }
+                else
+                    wrap = x1 > x2 ? 1 : 0;
+            }
             else
+            {
+                if (x2 > Width)
+                {
+                    if (x1 > Width)
+                    {
+                        x1 -= Width;
+                        x2 -= Width;
+                        wrap = x1 < x2 ? 2 : 0;
+                    }
+                    else
+                    {
+                        x2 -= Width;
+                        wrap = 0;
+                    }
+                }
+                else if (x1 > Width)
+                {
+                    x1 -= Width;
+                    wrap = 2;
+                }
+                else
                 wrap = x1 < x2 ? 2 : 0;
+            }
 
             switch (wrap)
             {
