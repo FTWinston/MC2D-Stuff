@@ -2,7 +2,7 @@
 //#define DEBUG_WORLDGEN_2
 //#define DEBUG_WORLDGEN_3
 //#define DEBUG_WORLDGEN_4
-//#define DEBUG_WORLDGEN_5
+#define DEBUG_WORLDGEN_5
 #define DEBUG_WORLDGEN_6
 
 using System;
@@ -93,7 +93,7 @@ namespace Terrain_generator
             double verticalExtent = (GroundVerticalExtent < 0 ? r.Next(1001) : GroundVerticalExtent) / 2000.0 * Height; // maximum value should be half the image height
             double bumpiness = (GroundBumpiness < 0 ? r.Next(1001) : GroundBumpiness) / 1666.6666667; // maximum value should be 0.6
 
-            double[] groundLevel = PerlinNoise(Width, 0, 1, bumpiness, new int[] { 256, 128, 64, 32 }, false);
+            double[] groundLevel = PerlinNoise(Width, 1, bumpiness, new int[] { 256, 128, 64, 32 }, false);
 
             double min, max;
             FindMinMax(groundLevel, out min, out max);
@@ -113,7 +113,7 @@ namespace Terrain_generator
 
         private void GenerateCaveSystem(Graphics g, Random r, double[] groundLevel)
         {
-            int caveComplexity = CaveComplexity < 1 ? r.Next(1, 9) : CaveComplexity;
+            int caveComplexity = CaveComplexity < 1 ? r.Next(2, 8) + 1 : CaveComplexity;
 
             if (caveComplexity < 2)
                 return;
@@ -164,21 +164,19 @@ for each (non-surface) connection, try rendering some larger caves along it,
                     if (link.Rightward) // as we're doubly-linked, don't render each one twice
                     {
                         double length = Distance(node.X, node.Y, link.Node.X, link.Node.Y);
-                        double[] noise = PerlinNoise((int)length, length * -0.075, length * 0.075, 0.25, new int[] { 256, 128, 64 }, true);
+                        double[] noise = PerlinNoise((int)length, length * 0.075, 0.25, new int[] { 256, 128, 64 }, true);
 
                         float x, y, px = node.X, py = node.Y;
                         double dx = (link.Node.X > node.X ? link.Node.X - node.X : link.Node.X + Width - node.X) / length;
                         double dy = (link.Node.Y - node.Y) / length;
 
-                        double stepLength = Math.Sqrt(dx*dx + dy*dy);
+                        double stepLength = Math.Sqrt(dx * dx + dy * dy);
                         double noiseScaleX = dy / stepLength, noiseScaleY = dx / stepLength;
 
                         for (int i = 1; i < noise.Length; i++)
                         {
                             x = node.X + (float)(dx * i + noise[i] * noiseScaleX); y = node.Y + (float)(dy * i + noise[i] * noiseScaleY);
-
-                            // check the math: does this properly add the noise on?
-                            
+                            bool rightward = px <= x;
 
                             if (x >= Width)
                                 x -= Width;
@@ -186,8 +184,8 @@ for each (non-surface) connection, try rendering some larger caves along it,
                                 x += Width;
 
 #if DEBUG_WORLDGEN_6
-                            Pen debug = new Pen(Color.Green, 1);
-                            DrawLineWrap(g, debug, link.Rightward, px, py, x, y);
+                            Pen debug = new Pen(i % 2 == 0 ? Color.Red : Color.Green, 1);
+                            DrawLineWrap(g, debug, rightward, px, py, x, y);
 #endif
                             px = x; py = y;
                         }
@@ -719,7 +717,7 @@ for each (non-surface) connection, try rendering some larger caves along it,
         {
             GraphicsPath path = new GraphicsPath(FillMode.Alternate);
 
-            double[] deformation = PerlinNoise(caveDeformSteps, 0, 0.4, 0.5, new int[] { 64, 32, 16, 8 }, false);
+            double[] deformation = PerlinNoise(caveDeformSteps, 0.4, 0.5, new int[] { 64, 32, 16, 8 }, false);
             Point center = GetRectangleCenter(bounds);
 
             // for each step, circle around the center, going out to the distance we should for an ellipse,
@@ -775,17 +773,15 @@ for each (non-surface) connection, try rendering some larger caves along it,
             return new Point(r.X + r.Width / 2, r.Y + r.Height / 2);
         }
 
-        private double[] PerlinNoise(int range, double amplitudeLowerBound, double amplitudeUpperBound, double persistance, int[] spacing, bool fixedEnds)
+        private double[] PerlinNoise(int range, double amplitude, double persistance, int[] spacing, bool fixedEnds)
         {
             double[] output = new double[range];
-            double amplitude = amplitudeUpperBound - amplitudeLowerBound;
             for (int o = 0; o < spacing.Length; o++)
             {
                 double[] noise = GenerateNoise(range, spacing[o], fixedEnds);
                 for (int i = 0; i < range; i++)
-                    output[i] += noise[i] * amplitude - amplitudeLowerBound;
+                    output[i] += noise[i] * amplitude;
                 amplitude *= persistance;
-                amplitudeLowerBound *= persistance;
             }
             return output;
         }
@@ -799,7 +795,7 @@ for each (non-surface) connection, try rendering some larger caves along it,
 
             // generate fixed points
             for (int i = fixedEnds ? smoothness : 0; i < range; i+=smoothness)
-                output[i] = r.NextDouble();
+                output[i] = r.NextDouble() * 2 - 1;
 
             int a = fixedEnds ? -smoothness : range - smoothness, b = 0, c = smoothness, d = smoothness * 2;
 
@@ -825,6 +821,13 @@ for each (non-surface) connection, try rendering some larger caves along it,
                     a = b; b = c; c = d;
                     d = d + smoothness;
                     stepped = true;
+
+                    if (fixedEnds && c >= range)
+                    {
+                        c = d = range;
+                        b = range - smoothness;
+                        a = b - smoothness;
+                    }
                 }
                 else
                     stepped = false;
