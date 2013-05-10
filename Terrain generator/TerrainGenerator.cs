@@ -2,7 +2,7 @@
 //#define DEBUG_WORLDGEN_2
 //#define DEBUG_WORLDGEN_3
 //#define DEBUG_WORLDGEN_4
-#define DEBUG_WORLDGEN_5
+//#define DEBUG_WORLDGEN_5
 #define DEBUG_WORLDGEN_6
 
 using System;
@@ -164,10 +164,10 @@ for each (non-surface) connection, try rendering some larger caves along it,
                     if (link.Rightward) // as we're doubly-linked, don't render each one twice
                     {
                         double length = Distance(node.X, node.Y, link.Node.X, link.Node.Y);
-                        double[] noise = PerlinNoise((int)length, length * 0.075, 0.25, new int[] { 256, 128, 64 }, true);
+                        double[] noise = PerlinNoise((int)length, length * 0.075, 0.75, new int[] { 256, 128, 64 }, true);
 
                         float x, y, px = node.X, py = node.Y;
-                        double dx = (link.Node.X > node.X ? link.Node.X - node.X : link.Node.X + Width - node.X) / length;
+                        double dx = (link.Node.X >= node.X ? link.Node.X - node.X : link.Node.X + Width - node.X) / length;
                         double dy = (link.Node.Y - node.Y) / length;
 
                         double stepLength = Math.Sqrt(dx * dx + dy * dy);
@@ -179,7 +179,7 @@ for each (non-surface) connection, try rendering some larger caves along it,
 
 #if DEBUG_WORLDGEN_6
                             bool rightward = px <= x;
-                            Pen debug = new Pen(i % 2 == 0 ? Color.Red : Color.Green, 1);
+                            Pen debug = new Pen(Color.Red, 1);
                             DrawLineWrap(g, debug, rightward, px, py, x, y);
 #endif
                             px = x; py = y;
