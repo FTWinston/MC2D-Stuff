@@ -815,99 +815,78 @@ for each (non-surface) connection, try rendering some larger caves along it,
         private double[] PerlinNoise(int range, double amplitude, double persistance, int[] spacing, bool fixedEnds)
         {
             double[] output = new double[range];
+            int flatteningStartLeft = Math.Max(1, (int)(range * 0.15)), flatteningStartRight = range - flatteningStartLeft - 1;
+            double flatteningPerStep = 1.0 / flatteningStartLeft;
+
             for (int o = 0; o < spacing.Length; o++)
             {
-                double[] noise = GenerateNoise(range, spacing[o], fixedEnds);
-                for (int i = 0; i < range; i++)
-                    output[i] += noise[i] * amplitude;
+                double[] noise = GenerateNoise(range, spacing[o], !fixedEnds);
+                
+                if ( fixedEnds )
+                    for (int i = 0; i < range; i++)
+                    {
+                        double endScale;
+
+                        // this scales the ends down linearly, which can have a sharp corner.
+                        // can we get a smoother transition
+
+                        if (i <= flatteningStartLeft)
+                            endScale = (double)i / flatteningStartLeft;
+                        else if (i >= flatteningStartRight)
+                            endScale = (double)(range - i - 1) / flatteningStartLeft;
+                        else
+                            endScale = 1;
+                        
+                        output[i] += noise[i] * amplitude * endScale;
+                    }
+                else
+                    for (int i = 0; i < range; i++)
+                        output[i] += noise[i] * amplitude;
+
                 amplitude *= persistance;
             }
             return output;
         }
 
-        private double[] GenerateNoise(int range, int smoothness, bool fixedEnds)
+        private double[] GenerateNoise(int range, int smoothness, bool wrapEnds)
         {
-            if ( !fixedEnds && range % smoothness != 0 )
-                throw new Exception("Range must divide by smoothness!");
+            if ( wrapEnds && (range % smoothness != 0) )
+                throw new Exception("For wrapping noise, the range must divide by smoothness!");
+
+            // generate the key points we will interpolate between
+            double[] keyPoints = new double[range / smoothness + (wrapEnds ? 3 : 4)];
+            for (int i = 0; i < keyPoints.Length; i++)
+                keyPoints[i] = r.NextDouble() * 2 - 1;
+
+            if (wrapEnds)
+            {
+                keyPoints[keyPoints.Length - 1] = keyPoints[2];
+                keyPoints[keyPoints.Length - 2] = keyPoints[1];
+                keyPoints[keyPoints.Length - 3] = keyPoints[0];
+            }
 
             double[] output = new double[range];
+            int key = 0;
 
-            // generate fixed points
-            for (int i = fixedEnds ? smoothness : 0; i < range; i+=smoothness)
-                output[i] = r.NextDouble() * 2 - 1;
-
-            int a = fixedEnds ? -smoothness : range - smoothness, b = 0, c = smoothness, d = smoothness * 2;
-
-            if (fixedEnds)
-                output[0] = 0;
-            else
-                if (c >= range)
-                {
-                    c -= range;
-                    d -= range;
-                }
-                else if (d >= range)
-                    d -= range;
-
-            // interpolate the remaining points
-            for (int i = 1; i < range; i++)
+            // now interpolate all the points - if its right on a key point, substitute it in
+            for (int i = 0; i < range; i++)
             {
                 if (i % smoothness == 0)
-                    continue;
-                bool stepped;
-                if (i > b + smoothness)
                 {
-                    a = b; b = c; c = d;
-                    d = d + smoothness;
-                    stepped = true;
-
-                    if (fixedEnds && c >= range)
-                    {
-                        c = d = range;
-                        b = range - smoothness;
-                        a = b - smoothness;
-                    }
-                }
-                else
-                    stepped = false;
-
-                double A, B = output[b], C, D;
-                if (fixedEnds)
-                {// beyond either end, assume all values are 0
-                    A = a < 0 ? 0 : output[a];
-                    C = c >= range ? 0 : output[c];
-                    D = d >= range ? 0 : output[d];
-                }
-                else
-                {// beyond the ends, wrap around
-                    if (stepped)
-                    {
-                        if (c >= range)
-                        {
-                            c -= range;
-                            d -= range;
-                        }
-                        else if (d >= range)
-                            d -= range;
-                    }
-
-                    A = output[a];
-                    C = output[c];
-                    D = output[d];
+                    key++;
+                    output[i] = keyPoints[key];
+                    continue;
                 }
 
-                double P = D - C - A + B;
-                double Q = A - B - P;
-                double R = C - A;
-                double S = B;
+                double P = keyPoints[key + 2] - keyPoints[key + 1] - keyPoints[key - 1] + keyPoints[key];
+                double Q = keyPoints[key - 1] - keyPoints[key] - P;
+                double R = keyPoints[key + 1] - keyPoints[key-1];
+                double S = keyPoints[key];
 
-                double mu = (double)(i-b)/smoothness;
+                double mu = ((double)(i - (key - 1) * smoothness)) / smoothness;
 
                 output[i] = P * mu * mu * mu + Q * mu * mu + R * mu + S;
             }
-
-            if (fixedEnds)
-                output[range - 1] = 0;
 
             return output;
         }
